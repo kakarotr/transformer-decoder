@@ -1,0 +1,1 @@
+This project provides a from-scratch implementation of a Transformer Decoder, covering both model architecture and training workflow. It includes attention mechanisms, masking strategies, and optimization techniques to train a sequence generation model effectively.
