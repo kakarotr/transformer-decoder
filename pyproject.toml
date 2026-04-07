@@ -1,5 +1,5 @@
 [project]
-name = "transformer"
+name = "transformer-decoder"
 version = "0.1.0"
 description = "Implemented and trained a Transformer Decoder model from scratch using PyTorch, including attention mechanisms, masking, and positional encoding. Built a complete training pipeline and optimized model performance through hyperparameter tuning."
 readme = "README.md"

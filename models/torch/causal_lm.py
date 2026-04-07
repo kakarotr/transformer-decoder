@@ -60,5 +60,4 @@ class CausalLanguageModel(nn.Module):
             position_ids=position_ids,
             use_padding_mask=use_padding_mask,
         )
-        logits = self.lm_head(hidden_states)
-        return logits
+        return hidden_states

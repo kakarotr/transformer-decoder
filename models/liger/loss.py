@@ -19,7 +19,8 @@ def compute_loss(
     if not flat_labels.ne(ignore_index).any():
         return flat_hidden_states.sum() * 0.0
 
-    return loss_fn(lm_head_weight, flat_hidden_states, flat_labels, ignore_index=ignore_index)
+    weight = lm_head_weight.to(dtype=flat_hidden_states.dtype)
+    return loss_fn(weight, flat_hidden_states, flat_labels, ignore_index=ignore_index)
 
 
 @torch.no_grad()
@@ -32,17 +33,18 @@ def eval_compute_loss(
     shift_hidden = hidden_states[:, :-1, :].contiguous()
     shift_labels = labels[:, 1:].contiguous()
 
-    flat_hidden = shift_hidden.view(-1, shift_hidden.size(-1))
+    flat_hidden_states = shift_hidden.view(-1, shift_hidden.size(-1))
     flat_labels = shift_labels.view(-1)
 
     valid_token_count = flat_labels.ne(ignore_index).sum()
 
     if valid_token_count.item() == 0:
-        return flat_hidden.sum() * 0.0, valid_token_count
+        return flat_hidden_states.sum() * 0.0, valid_token_count
 
+    weight = lm_head_weight.to(dtype=flat_hidden_states.dtype)
     mean_loss = loss_fn(
-        lm_head_weight,
-        flat_hidden,
+        weight,
+        flat_hidden_states,
         flat_labels,
         ignore_index=ignore_index,
     )
