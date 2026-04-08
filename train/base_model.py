@@ -16,12 +16,14 @@ class TrainingArguments(BaseModel):
     max_grad_norm: Annotated[float, Field(description="梯度裁剪阈值")] = 1.0
     warmup_steps_ratio: Annotated[float, Field(description="warmup 阶段占总训练步数的比例")] = 0.03
     warmup_start_factor: Annotated[float, Field(description="warmup 起始学习率系数")] = 0.1
-    eval_steps_ratio: Annotated[float, Field(description="评估间隔占总训练步数的比例")] = 0.1
+    eval_steps_ratio: Annotated[float, Field(description="评估间隔占总训练步数的比例")] = 0.02
     logging_steps: Annotated[int, Field(description="训练日志打印间隔")] = 100
     save_steps: Annotated[int, Field(description="模型保存间隔")] = 1000
     log_dir: Annotated[str, Field(description="TensorBoard 日志输出目录")] = "/workspace"
     flush_secs: Annotated[int, Field(description="TensorBoard 写入磁盘的刷新间隔（秒）")] = 30
     use_torch_complie: Annotated[bool, Field(description="是否使用 torch.complie 优化")] = True
+    early_stopping_patience: int = 4
+    early_stopping_min_delta: float = 0.002
 
     # 派生字段：初始化后自动计算
     warmup_steps: Annotated[int, Field(description="warmup 的实际步数")] = 0

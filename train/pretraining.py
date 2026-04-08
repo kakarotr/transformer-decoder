@@ -45,6 +45,7 @@ class TrainState:
     epoch: int = 0
     accum_loss_sum: float = 0.0
     accum_token_count: float = 0.0
+    should_stop: bool = False
 
 
 class PretrainingTrainer:
@@ -74,6 +75,23 @@ class PretrainingTrainer:
         )
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.arguments.learning_rate, fused=True)
         self.scheduler = self._init_scheduler()
+
+        early_stopping_patience = getattr(
+            self.arguments,
+            "early_stopping_patience",
+            os.environ.get("EARLY_STOPPING_PATIENCE", 0),
+        )
+        early_stopping_min_delta = getattr(
+            self.arguments,
+            "early_stopping_min_delta",
+            os.environ.get("EARLY_STOPPING_MIN_DELTA", 0.0),
+        )
+        self.early_stopping_patience = max(int(early_stopping_patience or 0), 0)
+        self.early_stopping_min_delta = float(early_stopping_min_delta or 0.0)
+        self.early_stopping_enabled = self.early_stopping_patience > 0
+        self.best_eval_loss: float | None = None
+        self.best_eval_step: int | None = None
+        self.early_stopping_bad_evals = 0
 
         # 指标
         self.console = Console() if self.is_main_process else None
@@ -113,7 +131,7 @@ class PretrainingTrainer:
         return TrainState()
 
     def _run_training_loop(self, state: TrainState):
-        while state.optimizer_steps < self.arguments.max_steps:
+        while state.optimizer_steps < self.arguments.max_steps and not state.should_stop:
             self._run_epoch(state)
 
     def _run_epoch(self, state: TrainState):
@@ -122,7 +140,7 @@ class PretrainingTrainer:
 
         for batch in self.train_dataloader:
             self._run_micro_step(batch, state)
-            if state.optimizer_steps >= self.arguments.max_steps:
+            if state.optimizer_steps >= self.arguments.max_steps or state.should_stop:
                 break
 
         state.epoch += 1
@@ -186,7 +204,7 @@ class PretrainingTrainer:
     def _handle_step_side_effects(self, state: TrainState):
         self._refresh_live(state.optimizer_steps)
         self._write_metrics_log(state.optimizer_steps)
-        self._run_eval(state.optimizer_steps)
+        self._run_eval(state.optimizer_steps, state)
         if state.optimizer_steps % self.arguments.save_steps == 0:
             self._save_checkpoint(state.optimizer_steps)
         self.optimizer.zero_grad(set_to_none=True)
@@ -205,7 +223,7 @@ class PretrainingTrainer:
             }
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
-    def _run_eval(self, optimizer_steps: int):
+    def _run_eval(self, optimizer_steps: int, state: TrainState):
         if not (optimizer_steps % self.arguments.eval_steps == 0 or optimizer_steps == self.arguments.max_steps):
             return
 
@@ -228,6 +246,7 @@ class PretrainingTrainer:
             f"loss={self.monitor_data.last_eval_loss:.4f} "
             f"ppl={self.monitor_data.last_eval_ppl:.4f}"
         )
+        self._update_early_stopping(self.monitor_data.last_eval_loss, optimizer_steps, state)
         self.display_mode = "train"
         self._refresh_live(optimizer_steps)
 
@@ -241,6 +260,55 @@ class PretrainingTrainer:
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             state_dict = self.model.module.state_dict() if self.is_distributed else self.model.state_dict()
             save_file(state_dict, checkpoint_path)
+
+    def _save_best_checkpoint(self):
+        if not self.is_main_process:
+            return
+
+        checkpoint_path = Path(f"{self.output_path}/best/model.safetensors")
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        state_dict = self.model.module.state_dict() if self.is_distributed else self.model.state_dict()
+        save_file(state_dict, checkpoint_path)
+
+    def _update_early_stopping(self, eval_loss: float, optimizer_steps: int, state: TrainState):
+        if not self.early_stopping_enabled:
+            return
+
+        if not math.isfinite(eval_loss):
+            state.should_stop = True
+            self._emit_event(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                f"[early_stop] stop at step={optimizer_steps} because eval_loss is not finite: {eval_loss}"
+            )
+            return
+
+        improved = self.best_eval_loss is None or eval_loss < (self.best_eval_loss - self.early_stopping_min_delta)
+        if improved:
+            self.best_eval_loss = eval_loss
+            self.best_eval_step = optimizer_steps
+            self.early_stopping_bad_evals = 0
+            self._save_best_checkpoint()
+            self._emit_event(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                f"[early_stop] new best eval_loss={eval_loss:.4f} at step={optimizer_steps}"
+            )
+            return
+
+        self.early_stopping_bad_evals += 1
+        self._emit_event(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[early_stop] no improvement "
+            f"({self.early_stopping_bad_evals}/{self.early_stopping_patience}), "
+            f"best={self.best_eval_loss:.4f} at step={self.best_eval_step}, current={eval_loss:.4f}"
+        )
+
+        if self.early_stopping_bad_evals >= self.early_stopping_patience:
+            state.should_stop = True
+            self._emit_event(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                f"[early_stop] triggered at step={optimizer_steps}, "
+                f"best_step={self.best_eval_step}, best_eval_loss={self.best_eval_loss:.4f}"
+            )
 
     def _init_distributed(self):
         is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
@@ -446,13 +514,25 @@ class PretrainingTrainer:
         eval_display = "running..." if self.display_mode == "eval" else f"{self.monitor_data.last_eval_loss:.4f}"
         ppl_display = "running..." if self.display_mode == "eval" else f"{self.monitor_data.last_eval_ppl:.4f}"
 
+        if self.early_stopping_enabled:
+            if self.best_eval_loss is None:
+                early_stop_display = f"ES: waiting/0/{self.early_stopping_patience}"
+            else:
+                early_stop_display = (
+                    f"ES: {self.early_stopping_bad_evals}/{self.early_stopping_patience} "
+                    f"best={self.best_eval_loss:.4f}@{self.best_eval_step}"
+                )
+        else:
+            early_stop_display = "ES: off"
+
         return (
             f"step_loss: {self.monitor_data.last_train_loss:.4f} | "
             f"avg_loss@{max(int(self.arguments.logging_steps), 1)}: {avg_loss:.4f} | "
             f"grad: {self.monitor_data.last_grad_norm:.4f} | "
             f"lr: {lr:.6g} | "
             f"tok/s(avg): {avg_tokens:,.0f} | "
-            f"eval_loss: {eval_display} | ppl: {ppl_display}"
+            f"eval_loss: {eval_display} | ppl: {ppl_display} | "
+            f"{early_stop_display}"
         )
 
     def _emit_event(self, message: str):
@@ -462,6 +542,7 @@ class PretrainingTrainer:
 
 if __name__ == "__main__":
     arguments = parse_args()
+    print(arguments.model_dump_json(indent=2))
     trainer = PretrainingTrainer(
         model_path="artifacts",
         arguments=arguments,
