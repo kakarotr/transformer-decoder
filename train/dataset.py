@@ -1,6 +1,7 @@
 import bisect
 import json
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import torch
@@ -80,23 +81,86 @@ class PackedTokenDataset(Dataset[torch.Tensor]):
     def __len__(self) -> int:
         return self.total_blocks
 
-    def __getitem__(self, index: int):
+    def _normalize_index(self, index: int) -> int:
         if index < 0:
             index += self.total_blocks
 
         if index < 0 or index >= self.total_blocks:
             raise IndexError(f"index out of range: {index}")
 
+        return index
+
+    def _locate_block(self, index: int) -> tuple[int, int]:
         shard_idx = bisect.bisect_right(self.cum_blocks, index)
         block_start = 0 if shard_idx == 0 else self.cum_blocks[shard_idx - 1]
         local_block_idx = index - block_start
+        return shard_idx, local_block_idx
 
+    def _read_one_block(self, shard_idx: int, local_block_idx: int) -> torch.Tensor:
         mm = self._get_memmap(shard_idx)
         token_start = local_block_idx * self.seq_len
         token_end = token_start + self.seq_len
 
-        block = np.asarray(mm[token_start:token_end], dtype=np.int64)
+        if self.dtype == np.int64:
+            block = mm[token_start:token_end]
+        else:
+            block = np.asarray(mm[token_start:token_end], dtype=np.int64)
+
         return torch.from_numpy(block)
+
+    def __getitem__(self, index: int) -> torch.Tensor:
+        index = self._normalize_index(index)
+        shard_idx, local_block_idx = self._locate_block(index)
+        return self._read_one_block(shard_idx, local_block_idx)
+
+    def __getitems__(self, indices: list[int]) -> list[torch.Tensor]:
+        if not indices:
+            return []
+
+        normalized = [self._normalize_index(i) for i in indices]
+        outputs: list[torch.Tensor | None] = [None] * len(normalized)
+
+        grouped: dict[int, list[tuple[int, int]]] = {}
+        for out_pos, index in enumerate(normalized):
+            shard_idx, local_block_idx = self._locate_block(index)
+            grouped.setdefault(shard_idx, []).append((out_pos, local_block_idx))
+
+        for shard_idx, items in grouped.items():
+            mm = self._get_memmap(shard_idx)
+
+            items.sort(key=lambda x: x[1])
+
+            run_start = 0
+            while run_start < len(items):
+                run_end = run_start + 1
+                while run_end < len(items):
+                    prev_local = items[run_end - 1][1]
+                    curr_local = items[run_end][1]
+                    if curr_local != prev_local + 1:
+                        break
+                    run_end += 1
+
+                run_items = items[run_start:run_end]
+                first_local = run_items[0][1]
+                last_local = run_items[-1][1]
+
+                token_start = first_local * self.seq_len
+                token_end = (last_local + 1) * self.seq_len
+
+                if self.dtype == np.int64:
+                    chunk = mm[token_start:token_end]
+                else:
+                    chunk = np.asarray(mm[token_start:token_end], dtype=np.int64)
+
+                chunk = chunk.reshape(-1, self.seq_len)
+
+                for row_idx, (out_pos, _) in enumerate(run_items):
+                    outputs[out_pos] = torch.from_numpy(chunk[row_idx])
+
+                run_start = run_end
+
+        result = cast(list[torch.Tensor], outputs)
+        return result
 
     def _get_memmap(self, shard_idx: int):
         mm = self._memmaps.get(shard_idx)

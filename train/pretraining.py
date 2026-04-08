@@ -32,11 +32,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
-import models.liger
-import models.liger.causal_lm
-import models.liger.loss
-import models.torch.causal_lm
-import models.torch.loss
 from models.config import TransformerConfig
 from train.base_model import MetricsData, TrainingArguments
 from train.dataset import PackedTokenDataset
@@ -315,12 +310,16 @@ class PretrainingTrainer:
         # Windows 系统加载原生 Pytorch 实现的模型
         os_name = platform.system()
         if os_name == "Linux":
+            import models.liger.causal_lm
+
             model = models.liger.causal_lm.CausalLanguageModel(config=config).to(self.device)
         else:
+            import models.torch.causal_lm
+
             model = models.torch.causal_lm.CausalLanguageModel(config=config).to(self.device)
 
         if self.arguments.use_torch_complie:
-            model = torch.compile(model, mode="default")
+            model = torch.compile(model, mode="max-autotune")
 
         if self.is_distributed:
             model = torch.nn.parallel.DistributedDataParallel(
@@ -329,14 +328,19 @@ class PretrainingTrainer:
                 output_device=self.local_rank,
                 find_unused_parameters=False,
                 gradient_as_bucket_view=True,
+                static_graph=True,
             )
         return config, tokenizer, model
 
     def _get_loss_fn(self):
         os_name = platform.system()
         if os_name == "Linux":
+            import models.liger.loss
+
             return models.liger.loss.compute_loss, models.liger.loss.eval_compute_loss
         else:
+            import models.torch.loss
+
             return models.torch.loss.compute_loss, models.torch.loss.eval_compute_loss
 
     def _init_scheduler(self):
@@ -464,6 +468,4 @@ if __name__ == "__main__":
         data_dir="data/pretraining",
         output_path="artifacts",
     )
-    print(arguments.model_dump_json())
-    trainer()
     trainer()
