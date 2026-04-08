@@ -63,6 +63,8 @@ class PretrainingTrainer:
 
         self.is_distributed, self.world_size, self.local_rank, self.device = self._init_distributed()
         self.is_main_process = (not self.is_distributed) or dist.get_rank() == 0
+        if self.is_main_process:
+            print(self.arguments.model_dump_json(indent=2))
         self.train_dataset, self.eval_dataset = self._load_dataset(data_dir)
         self.train_dataloader, self.eval_dataloader = self._load_dataloader()
         self.config, self.tokenizer, self.model = self._get_tokenizer_and_model(model_path)
@@ -542,7 +544,6 @@ class PretrainingTrainer:
 
 if __name__ == "__main__":
     arguments = parse_args()
-    print(arguments.model_dump_json(indent=2))
     trainer = PretrainingTrainer(
         model_path="artifacts",
         arguments=arguments,
