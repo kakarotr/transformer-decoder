@@ -20,7 +20,7 @@ def compute_loss(
         return flat_hidden_states.sum() * 0.0
 
     weight = lm_head_weight.to(dtype=flat_hidden_states.dtype)
-    return loss_fn(weight, flat_hidden_states, flat_labels, ignore_index=ignore_index)
+    return loss_fn(weight, flat_hidden_states, flat_labels)
 
 
 @torch.no_grad()
@@ -46,7 +46,6 @@ def eval_compute_loss(
         weight,
         flat_hidden_states,
         flat_labels,
-        ignore_index=ignore_index,
     )
 
     loss_sum = mean_loss * valid_token_count
