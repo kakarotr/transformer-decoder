@@ -319,7 +319,7 @@ class PretrainingTrainer:
             model = models.torch.causal_lm.CausalLanguageModel(config=config).to(self.device)
 
         if self.arguments.use_torch_complie:
-            model = torch.compile(model, mode="max-autotune")
+            model = torch.compile(model, mode="default")
 
         if self.is_distributed:
             model = torch.nn.parallel.DistributedDataParallel(
