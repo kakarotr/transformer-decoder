@@ -41,7 +41,8 @@ class CausalLanguageModel(nn.Module):
             nn.init.normal_(layer.attention.kv_proj.weight, mean=0.0, std=base_std)
             nn.init.normal_(layer.attention.o_proj.weight, mean=0.0, std=residual_std)
 
-            nn.init.normal_(layer.mlp.gate_up_proj.weight, mean=0.0, std=base_std)
+            nn.init.normal_(layer.mlp.gate_proj.weight, mean=0.0, std=base_std)
+            nn.init.normal_(layer.mlp.up_proj.weight, mean=0.0, std=base_std)
             nn.init.normal_(layer.mlp.down_proj.weight, mean=0.0, std=residual_std)
 
         nn.init.normal_(self.lm_head.weight, mean=0.0, std=base_std)
