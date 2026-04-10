@@ -2,7 +2,8 @@ import math
 
 import torch
 from torch import nn
-from transformers import PreTrainedModel
+from transformers import AutoConfig, AutoModel, AutoModelForCausalLM, PreTrainedModel
+from transformers.generation import GenerationMixin
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -115,7 +116,7 @@ class GllamaModel(GllamaPreTrainedModel):
         )
 
 
-class GllamaForCausalLM(GllamaPreTrainedModel):
+class GllamaForCausalLM(GllamaPreTrainedModel, GenerationMixin):
     def __init__(self, config: GllamaConfig):
         super().__init__(config)
         self.model = GllamaModel(config)
@@ -182,3 +183,28 @@ class GllamaForCausalLM(GllamaPreTrainedModel):
             "past_key_values": None,
             "use_cache": False,
         }
+
+
+if __name__ == "__main__":
+    AutoConfig.register("gllama_decoder", GllamaConfig)
+    AutoModel.register(GllamaConfig, GllamaModel)
+    AutoModelForCausalLM.register(GllamaConfig, GllamaForCausalLM)
+
+    config = GllamaConfig(
+        vocab_size=32768,
+        max_position_embeddings=2048,
+        hidden_size=1536,
+        num_layers=18,
+        num_attention_heads=12,
+        num_key_value_heads=12,
+        intermediate_size=4608,
+        rms_eps=1e-5,
+        rope_base=10000,
+        dropout_prob=0.0,
+        pad_token_id=0,
+        eos_token_id=1,
+        tie_word_embeddings=False,
+        use_cache=False,
+    )
+    model = GllamaForCausalLM(config)
+    model.save_pretrained("artifacts", safe_serialization=True)

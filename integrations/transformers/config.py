@@ -1,9 +1,9 @@
 from typing import no_type_check
 
-from transformers import PreTrainedConfig
+from transformers import PretrainedConfig
 
 
-class GllamaConfig(PreTrainedConfig):
+class GllamaConfig(PretrainedConfig):
     model_type = "gllama_decoder"
 
     @no_type_check
