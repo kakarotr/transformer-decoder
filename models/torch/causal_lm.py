@@ -1,4 +1,5 @@
 import math
+from typing import no_type_check
 
 import torch
 import torch.nn as nn
@@ -30,6 +31,7 @@ class CausalLanguageModel(nn.Module):
         self.pad_token_id = config.pad_token_id
         self._init_weights()
 
+    @no_type_check
     @torch.no_grad()
     def _init_weights(self):
         base_std = 0.02

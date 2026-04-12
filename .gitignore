@@ -10,3 +10,4 @@ wheels/
 .venv
 
 artifacts/model.safetensors
+artifacts/checkpoints-*

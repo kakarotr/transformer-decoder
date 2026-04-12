@@ -1,8 +1,11 @@
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from integrations.transformers.config import GllamaConfig
 from integrations.transformers.model import GllamaForCausalLM
+from models.config import TransformerConfig
+from models.torch.causal_lm import CausalLanguageModel
 
 
 @torch.no_grad()
@@ -23,7 +26,7 @@ def greedy_decode():
 def sample():
     outputs = model.generate(
         **inputs,
-        max_new_tokens=128,
+        max_new_tokens=512,
         do_sample=True,
         temperature=0.8,
         top_p=0.9,
@@ -53,11 +56,9 @@ model = GllamaForCausalLM.from_pretrained("artifacts", config=config).to(device)
 tokenizer = AutoTokenizer.from_pretrained("artifacts")
 
 inputs = tokenizer(
-    "基本建设是促进社会生产发展和提高人民生活水平的重要手段",
+    "迄今人类所有的食物确实都来自野生生物",
     return_tensors="pt",
     return_token_type_ids=False,
 )
 inputs.pop("attention_mask", None)
 inputs = {k: v.to(device) for k, v in inputs.items()}
-
-sample()
