@@ -49,6 +49,18 @@ def test():
         print(idx, repr(tokenizer.decode([idx])), float(val))
 
 
+def lm_nrom():
+    # 取 lm_head 权重 shape: [vocab_size, hidden_dim]
+    W = model.lm_head.weight.detach().float()
+
+    # 计算行向量的归一化内积（行间余弦相似度）
+    W_norm = F.normalize(W, dim=-1)
+    # 随机采样 1000 对行，计算余弦
+    idx = torch.randint(0, W.size(0), (1000, 2))
+    cos = (W_norm[idx[:, 0]] * W_norm[idx[:, 1]]).sum(dim=-1)
+    print(cos.mean(), cos.std())
+
+
 device = torch.device("cuda")
 
 config = GllamaConfig.from_pretrained("artifacts")
@@ -62,3 +74,5 @@ inputs = tokenizer(
 )
 inputs.pop("attention_mask", None)
 inputs = {k: v.to(device) for k, v in inputs.items()}
+
+lm_nrom()
