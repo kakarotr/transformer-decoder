@@ -71,3 +71,24 @@ print("weight mean:", norm.weight.mean().item())
 print("weight std:", norm.weight.std().item())
 print("weight max:", norm.weight.max().item())
 print("weight min:", norm.weight.min().item())
+
+stacked = torch.stack(all_after)  # [N, hidden_dim]
+
+# 计算并减去均值方向
+mean_vec = stacked.mean(dim=0, keepdim=True)
+centered = stacked - mean_vec
+
+# 用去中心化的 hidden state 重新算 logits
+W = model.lm_head.weight.detach().float()  # [vocab, hidden]
+logits_centered = centered.float() @ W.T  # [N, vocab]
+
+# 计算去中心化后的 logits 余弦
+logits_normed = F.normalize(logits_centered, dim=-1)
+sim = logits_normed @ logits_normed.T
+print("去中心化后 logits 余弦矩阵：")
+print(sim)
+
+# 同时看原始 hidden 的主方向能量占比
+vals = torch.linalg.svd(stacked.float(), full_matrices=False).S
+print("\nhidden state 奇异值前10：", vals[:10])
+print("第一奇异值占比：", (vals[0] ** 2 / (vals**2).sum()).item())
