@@ -6,26 +6,23 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.12.5",
-
+    "modelscope>=1.35.3",
+    "datasets>=4.8.4",
     # MacOS Intel
     "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "transformers==4.45.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "tokenizers==0.20.1; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-
     # Windows
     "torch==2.9.1; sys_platform == 'win32'",
     "transformers>=5.5.0; sys_platform == 'win32'",
     "tokenizers>=0.22.2; sys_platform == 'win32'",
-
     # Linux
     "torch==2.9.1; sys_platform == 'linux'",
     "transformers>=5.5.0; sys_platform == 'linux'",
     "tokenizers>=0.22.2; sys_platform == 'linux'",
     "triton>=3.3.0; sys_platform == 'linux'",
     "liger-kernel>=0.7.0,<0.8.0; sys_platform == 'linux'",
-
-    "modelscope>=1.35.3",
 ]
 
 [tool.uv.sources]
