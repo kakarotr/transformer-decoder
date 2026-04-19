@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import opencc
 import pandas as pd
 from rich.progress import (
     BarColumn,
@@ -15,10 +14,9 @@ from rich.progress import (
 
 from data.clean.base_cleaner import BaseCleaner
 
-input_path = Path("F:/transformer-decoder/pretraining-data/raw/finewiki")
-output_path = Path("F:/transformer-decoder/pretraining-data/clean/finewiki")
+input_path = Path("F:/transformer-decoder/pretraining-data/raw/Ultra-FineWeb")
+output_path = Path("F:/transformer-decoder/pretraining-data/clean/Ultra-FineWeb")
 
-convert = opencc.OpenCC("tw2sp")
 cleaner = BaseCleaner()
 
 parquet_files = sorted(input_path.glob("*.parquet"))
@@ -44,11 +42,11 @@ with Progress(
         row_task = progress.add_task("  ↳ 清洗中", total=total_rows)
 
         records = []
-        for text in df["text"]:
-            text = convert.convert(text)
-            result = cleaner.clean(text)
-            if result.passed:
-                records.append({"text": result.text})
+        for text, score in zip(df["content"], df["score"]):
+            if float(score) >= 0.9:
+                result = cleaner.clean(text)
+                if result.passed:
+                    records.append({"text": result.text, "score": score})
             progress.advance(row_task)
 
         pd.DataFrame(records).to_parquet(output_path / parquet_file.name, index=False)
