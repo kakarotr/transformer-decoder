@@ -1,9 +1,9 @@
-from pathlib import Path
 import random
+from pathlib import Path
 
 import pandas as pd
-from tokenizers import AddedToken, Tokenizer, models, trainers
-from tokenizers.pre_tokenizers import Digits, Sequence, UnicodeScripts
+from tokenizers import AddedToken, Regex, Tokenizer, models, trainers
+from tokenizers.pre_tokenizers import Digits, Sequence, Split, UnicodeScripts
 from transformers.tokenization_utils_tokenizers import PreTrainedTokenizerFast
 
 vocab_size = 40960
@@ -25,19 +25,22 @@ def get_training_data():
     for path in sorted(finewiki_path.glob("*.parquet")):
         df = pd.read_parquet(path, columns=["text"])
         texts.append(df["text"].to_list())
-    
+
     all_files = sorted(fineweb_path.glob("*.parquet"))
     sampled_files = random.sample(all_files, 50)
     for path in sampled_files:
         df = pd.read_parquet(path, columns=["text"])
         texts.extend(df["text"].tolist())
 
-    
-    
-
 
 tokenizer = Tokenizer(models.BPE())
-tokenizer.pre_tokenizer = Sequence([UnicodeScripts(), Digits(individual_digits=True)])
+tokenizer.pre_tokenizer = Sequence(
+    [
+        UnicodeScripts(),
+        Digits(individual_digits=True),
+        Split(pattern=Regex(r" "), behavior="isolated"),
+    ]
+)
 
 trainer = trainers.BpeTrainer(
     vocab_size=vocab_size - len(markdown_tokens),
