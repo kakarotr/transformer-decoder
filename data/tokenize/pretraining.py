@@ -14,7 +14,7 @@ special_tokens_dict = {
     "user": "<|im_user|>",
     "assistant": "<|im_assistant|>",
 }
-markdown_tokens = ["#", "##", "###", "####", "-", "`", "**", "|", ">"]
+markdown_tokens = ["#", "##", "###", "####", "-", "`", "```", "**", "|", ">"]
 
 
 def get_training_data():
