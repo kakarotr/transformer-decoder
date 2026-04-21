@@ -32,7 +32,7 @@ def get_training_data():
 
     all_files = sorted(fineweb_path.glob("*.parquet"))
     random.seed(42)
-    sampled_files = random.sample(all_files, 50)
+    sampled_files = random.sample(all_files, 13)
     for path in sampled_files:
         df = pd.read_parquet(path, columns=["text"])
         texts.extend(df["text"].tolist())
