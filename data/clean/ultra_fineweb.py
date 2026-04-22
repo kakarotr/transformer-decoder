@@ -43,7 +43,7 @@ with Progress(
 
         records = []
         for text, score in zip(df["content"], df["score"]):
-            if float(score) >= 0.85:
+            if float(score) >= 0.89:
                 result = cleaner.clean(text)
                 if result.passed:
                     records.append({"text": result.text, "score": score})
