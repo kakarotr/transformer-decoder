@@ -21,8 +21,8 @@ special_tokens_dict = {
 
 def get_training_data():
     texts = []
-    finewiki_path = Path("/root/transformer-decoder/pretraing/finewiki")
-    fineweb_path = Path("/root/transformer-decoder/pretraing/Ultra-FineWeb")
+    finewiki_path = Path("/root/transformer-decoder/pretraining/finewiki")
+    fineweb_path = Path("/root/transformer-decoder/pretraining/Ultra-FineWeb")
 
     print(f"{datetime.now().strftime('%H:%M:%S')} 开始采样训练数据...")
 

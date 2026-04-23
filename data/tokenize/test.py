@@ -29,4 +29,4 @@ def test_tokenize():
     print(tokenizer.encode("你好，   今天天气怎么样？"))
 
 
-test_tokenize()
+test_md_token_in_vocab()
