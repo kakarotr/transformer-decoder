@@ -77,7 +77,7 @@ fast_tokenizer = PreTrainedTokenizerFast(
 )
 fast_tokenizer.add_bos_token = False
 fast_tokenizer.add_eos_token = False
-# fast_tokenizer.add_tokens(markdown_tokens)
+fast_tokenizer.add_tokens(markdown_tokens)
 
 # current_size = len(fast_tokenizer)
 # if current_size < vocab_size:
