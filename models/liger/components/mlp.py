@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 
-import torch
 from liger_kernel.transformers import LigerSwiGLUMLP
 
 
