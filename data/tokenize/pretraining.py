@@ -16,7 +16,7 @@ special_tokens_dict = {
     "user": "<|im_user|>",
     "assistant": "<|im_assistant|>",
 }
-# markdown_tokens = ["##", "###", "####", "```", "**"]
+markdown_tokens = ["```"]
 
 
 def get_training_data():
@@ -53,7 +53,7 @@ tokenizer.pre_tokenizer = Sequence(
 )
 
 trainer = trainers.BpeTrainer(
-    vocab_size=vocab_size,
+    vocab_size=vocab_size - len(markdown_tokens),
     special_tokens=list(special_tokens_dict.values()),
     min_frequency=5,
     show_progress=True,
