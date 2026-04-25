@@ -1,7 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-import opencc
 import pandas as pd
 from rich.progress import (
     BarColumn,
@@ -16,8 +15,8 @@ from rich.progress import (
 
 from data.clean.base_cleaner import BaseCleaner
 
-input_path = Path("F:/transformer-decoder/pretraining-data/clean/finewiki")
-output_path = Path("F:/transformer-decoder/pretraining-data/clean_2/finewiki")
+input_path = Path("F:/transformer-decoder/pretraining-data/clean/Ultra-FineWeb")
+output_path = Path("F:/transformer-decoder/pretraining-data/clean_2/Ultra-FineWeb")
 
 NUM_WORKERS = 8
 
@@ -27,17 +26,14 @@ def process_file(parquet_file: Path) -> tuple[str, int, int]:
     单个文件的清洗逻辑，在子进程中执行。
     返回 (文件名, 保留数量, 过滤数量)
     """
-    convert = opencc.OpenCC("tw2sp")
     cleaner = BaseCleaner()
-
     df = pd.read_parquet(parquet_file)
 
     records = []
-    for text in df["text"]:
-        text = convert.convert(text)
+    for text, score in zip(df["text"], df["score"]):
         result = cleaner.clean(text)
         if result.passed:
-            records.append({"text": result.text})
+            records.append({"text": result.text, "score": score})
 
     out_file = output_path / parquet_file.name
     pd.DataFrame(records).to_parquet(out_file, index=False)

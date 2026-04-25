@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 
 class CleanConfig(BaseModel):
-    min_chars: int = Field(default=256, description="文档最少字符数")
+    min_chars: int = Field(default=200, description="文档最少字符数")
     max_chars: int = Field(default=100_000, description="文档最多字符数")
     min_chinese_ratio: float = Field(default=0.3, description="中文字符比例过滤（中文 / 所有非空白字符）")
     max_duplicate_line_ratio: float = Field(default=0.3, description="重复行过滤：重复行占总行数的比例上限")
@@ -364,6 +364,12 @@ class BaseCleaner:
         - 压缩连续空行（保留最多一个空行）
         - strip 首尾空白
         """
+
+        def _compress_inline_spaces(line: str) -> str:
+            stripped = line.lstrip(" ")
+            indent = line[: len(line) - len(stripped)]
+            return indent + re.sub(r" {5,}", "    ", stripped)
+
         # 零宽字符 / BOM / 软连字 / 词连接符 / 方向控制符（LRM、RLM、Embedding、Override、PDI）/ 变体选择符
         text = re.sub(
             r"[\u200b-\u200f\u202a-\u202e\u2069\ufeff\u00ad\u2060\ufe00-\ufe0f]",
@@ -374,6 +380,8 @@ class BaseCleaner:
         text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", text)
         # 排版空格（U+2000–U+200A：全角空格、窄空格等）→ 普通空格
         text = re.sub(r"[\u2000-\u200a]", " ", text)
+        # 连续空格压缩：超过 4 个空格 → 4 个空格
+        text = "\n".join(_compress_inline_spaces(line) for line in text.splitlines())
         # 压缩连续空行
         text = re.sub(r"\n{3,}", "\n\n", text)
         # 每行末尾多余空格

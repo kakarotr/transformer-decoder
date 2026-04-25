@@ -21,8 +21,8 @@ markdown_tokens = ["```"]
 
 def get_training_data():
     texts = []
-    finewiki_path = Path("/root/transformer-decoder/pretraining/finewiki")
-    fineweb_path = Path("/root/transformer-decoder/pretraining/Ultra-FineWeb")
+    finewiki_path = Path("/workspace/transformer-decoder-2/pretraining/finewiki")
+    fineweb_path = Path("/workspace/transformer-decoder-2/pretraining/Ultra-FineWeb")
 
     print(f"{datetime.now().strftime('%H:%M:%S')} 开始采样训练数据...")
 
@@ -48,7 +48,7 @@ tokenizer.pre_tokenizer = Sequence(
         UnicodeScripts(),
         Digits(individual_digits=True),
         Split(pattern=Regex(r"\n+"), behavior="isolated"),
-        Split(pattern=Regex(r" +"), behavior="isolated"),
+        Split(pattern=Regex(r" {5,}"), behavior="isolated"),
     ]
 )
 
