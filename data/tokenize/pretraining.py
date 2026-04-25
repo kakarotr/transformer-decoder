@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pandas as pd
 from tokenizers import AddedToken, Regex, Tokenizer, models, trainers
-from tokenizers.pre_tokenizers import Digits, Sequence, Split, UnicodeScripts
+from tokenizers.pre_tokenizers import (
+    Digits,
+    Punctuation,
+    Sequence,
+    Split,
+    UnicodeScripts,
+)
 from transformers.tokenization_utils_tokenizers import PreTrainedTokenizerFast
 
 vocab_size = 39 * 1024
@@ -16,7 +22,7 @@ special_tokens_dict = {
     "user": "<|im_user|>",
     "assistant": "<|im_assistant|>",
 }
-markdown_tokens = ["```"]
+# markdown_tokens = ["```"]
 
 
 def get_training_data():
@@ -46,14 +52,15 @@ tokenizer = Tokenizer(models.BPE())
 tokenizer.pre_tokenizer = Sequence(
     [
         UnicodeScripts(),
+        Punctuation(behavior="isolated"),
         Digits(individual_digits=True),
         Split(pattern=Regex(r"\n+"), behavior="isolated"),
-        Split(pattern=Regex(r" {5,}"), behavior="isolated"),
+        Split(pattern=Regex(r" +"), behavior="isolated"),
     ]
 )
 
 trainer = trainers.BpeTrainer(
-    vocab_size=vocab_size - len(markdown_tokens),
+    vocab_size=vocab_size,
     special_tokens=list(special_tokens_dict.values()),
     min_frequency=5,
     show_progress=True,
@@ -77,13 +84,7 @@ fast_tokenizer = PreTrainedTokenizerFast(
 )
 fast_tokenizer.add_bos_token = False
 fast_tokenizer.add_eos_token = False
-fast_tokenizer.add_tokens(markdown_tokens)
-
-# current_size = len(fast_tokenizer)
-# if current_size < vocab_size:
-#     pad_count = vocab_size - current_size
-#     dummy_tokens = [f"<|dummy_{i}|>" for i in range(pad_count)]
-#     fast_tokenizer.add_tokens(dummy_tokens)
+# fast_tokenizer.add_tokens(markdown_tokens)
 
 output_dir = Path("artifacts/base")
 if not output_dir.exists():

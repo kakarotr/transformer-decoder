@@ -27,6 +27,9 @@ def test_md_token_in_vocab():
 def test_tokenize():
     tokenizer: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained("artifacts/base")
     print(tokenizer.encode("你好，   今天天气怎么样？"))
+    print(tokenizer.encode("###", add_special_tokens=False))
+    print(tokenizer.encode("####", add_special_tokens=False))
+    print(len(tokenizer.get_vocab()))  # 应该还是 39 * 1024
 
 
 test_md_token_in_vocab()
