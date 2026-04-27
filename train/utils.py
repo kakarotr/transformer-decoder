@@ -35,8 +35,3 @@ def parse_args() -> TrainingArguments:
     parser = build_parser()
     namespace = parser.parse_args()
     return TrainingArguments(**vars(namespace))
-
-
-def get_system():
-    os_name = platform.system()
-    

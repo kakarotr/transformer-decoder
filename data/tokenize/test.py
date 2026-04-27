@@ -4,16 +4,17 @@ from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
 
 def test_pre_tokenize():
-    pre_tokenizer = Sequence(
+    pre_tok = Sequence(
         [
             UnicodeScripts(),
             Digits(individual_digits=True),
-            Split(pattern=Regex(r" +"), behavior="isolated"),
             Split(pattern=Regex(r"\n+"), behavior="isolated"),
+            Split(pattern=Regex(r" +"), behavior="isolated"),
         ]
     )
-
-    print(pre_tokenizer.pre_tokenize_str("## 一级标题\n这是一段内容\n\n### 下一级标题"))
+    print(pre_tok.pre_tokenize_str("## Hello"))
+    print(pre_tok.pre_tokenize_str("### World"))
+    print(pre_tok.pre_tokenize_str("**bold**"))
 
 
 def test_md_token_in_vocab():

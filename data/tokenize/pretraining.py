@@ -52,7 +52,6 @@ tokenizer = Tokenizer(models.BPE())
 tokenizer.pre_tokenizer = Sequence(
     [
         UnicodeScripts(),
-        Punctuation(behavior="isolated"),
         Digits(individual_digits=True),
         Split(pattern=Regex(r"\n+"), behavior="isolated"),
         Split(pattern=Regex(r" +"), behavior="isolated"),
