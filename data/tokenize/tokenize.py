@@ -52,15 +52,28 @@ SEED = 42
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def collect_parquet_files(sources: list[Path]) -> list[Path]:
-    files: list[Path] = []
+def collect_parquet_files(sources: list[Path], rng: random.Random) -> list[Path]:
+    """
+    分别收集各 source 的文件，按比例均匀交织后返回。
+
+    各 source 在 [0, 1) 区间内均匀分配位置（加小幅随机抖动），
+    再按位置合并排序。无论两边文件数量差距多大，都能保证全程均匀混合，
+    避免长时间连续喂同一个 source 的内容。
+    """
+    tagged: list[tuple[float, Path]] = []
     for source in sources:
-        found = sorted(source.rglob("*.parquet"))
-        if not found:
+        files = sorted(source.rglob("*.parquet"))
+        if not files:
             raise FileNotFoundError(f"No parquet files found in: {source}")
-        files.extend(found)
-    random.shuffle(files)
-    return files
+        n = len(files)
+        rng.shuffle(files)
+        for i, f in enumerate(files):
+            # 均匀分布 + 半格以内的抖动，保证 source 间交织但不打破各自的内部顺序
+            position = (i + rng.random() * 0.5) / n
+            tagged.append((position, f))
+
+    tagged.sort(key=lambda x: x[0])
+    return [f for _, f in tagged]
 
 
 class ShardWriter:
@@ -162,7 +175,7 @@ def main() -> None:
     if vocab_size > 65535:
         raise ValueError(f"vocab_size={vocab_size} exceeds uint16 range (65535). Use uint32 instead.")
 
-    files = collect_parquet_files(SOURCES)
+    files = collect_parquet_files(SOURCES, rng)
     console.print(f"Found [bold cyan]{len(files)}[/bold cyan] parquet files\n")
 
     tmp_dir = OUTPUT_DIR / "tmp"
