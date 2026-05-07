@@ -15,8 +15,8 @@ from rich.progress import (
 
 from data.clean.base_cleaner import BaseCleaner
 
-input_path = Path("F:/transformer-decoder/pretraining-data/clean/Ultra-FineWeb")
-output_path = Path("F:/transformer-decoder/pretraining-data/clean_2/Ultra-FineWeb")
+input_path = Path("F:/transformer-decoder/pretraining/raw/Ultra-FineWeb")
+output_path = Path("F:/transformer-decoder/pretraining/clean/Ultra-FineWeb")
 
 NUM_WORKERS = 8
 
@@ -31,7 +31,7 @@ def process_file(parquet_file: Path) -> tuple[str, int, int]:
 
     records = []
     for text, score in zip(df["content"], df["score"]):
-        if float(score) >= 0.9:
+        if float(score) >= 0.85:
             result = cleaner.clean(text)
             if result.passed:
                 records.append({"text": result.text, "score": score})
