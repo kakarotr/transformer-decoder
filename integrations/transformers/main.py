@@ -1,3 +1,4 @@
+from tokenizers import decoders
 import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer
@@ -36,7 +37,8 @@ def sample():
         use_cache=False,
     )
     text = tokenizer.decode(outputs[0], skip_special_tokens=False)
-    print(text)
+    print(type(text))
+    print(repr(text))
 
 
 def test():
@@ -65,7 +67,7 @@ device = torch.device("cuda")
 
 config = GllamaConfig.from_pretrained("artifacts")
 model = GllamaForCausalLM.from_pretrained("artifacts", config=config).to(device)
-tokenizer = AutoTokenizer.from_pretrained("artifacts")
+tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
 
 inputs = tokenizer(
     "迄今人类所有的食物确实都来自野生生物",
@@ -75,4 +77,4 @@ inputs = tokenizer(
 inputs.pop("attention_mask", None)
 inputs = {k: v.to(device) for k, v in inputs.items()}
 
-lm_nrom()
+sample()
