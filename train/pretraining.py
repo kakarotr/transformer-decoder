@@ -5,7 +5,7 @@ import platform
 import time
 from collections import deque
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, no_type_check
@@ -75,7 +75,7 @@ class PretrainingTrainer:
             * self.config.max_position_embeddings
             * self.arguments.gradient_accumulation_steps
         )
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.arguments.learning_rate, fused=True)
+        self.optimizer = self._init_optimizer()
         self.scheduler = self._init_scheduler()
 
         early_stopping_patience = getattr(
@@ -117,7 +117,7 @@ class PretrainingTrainer:
             self._refresh_live(state.optimizer_steps)
             self._run_training_loop(state)
 
-        self._save_checkpoint(optimizer_steps=None)
+        self._save_checkpoint(state=state)
         self._emit_event(
             f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [done] training finished at step={state.optimizer_steps}"
         )
@@ -208,7 +208,7 @@ class PretrainingTrainer:
         self._write_metrics_log(state.optimizer_steps)
         self._run_eval(state.optimizer_steps, state)
         if state.optimizer_steps % self.arguments.save_steps == 0:
-            self._save_checkpoint(state.optimizer_steps)
+            self._save_checkpoint(state=state)
         self.optimizer.zero_grad(set_to_none=True)
 
     def _write_metrics_log(self, optimizer_steps: int):
@@ -221,7 +221,7 @@ class PretrainingTrainer:
                 "step": optimizer_steps,
                 "lr": f"{self.optimizer.param_groups[0]['lr']:.6g}",
                 "loss": f"{self.monitor_data.last_train_loss:.4f}",
-                "grad_nrom": f"{float(self.monitor_data.last_grad_norm):.4f}",
+                "grad_norm": f"{float(self.monitor_data.last_grad_norm):.4f}",
             }
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
@@ -252,7 +252,8 @@ class PretrainingTrainer:
         self.display_mode = "train"
         self._refresh_live(optimizer_steps)
 
-    def _save_checkpoint(self, optimizer_steps: int | None):
+    def _save_checkpoint(self, state: TrainState):
+        optimizer_steps = state.optimizer_steps if state.optimizer_steps != 0 else None
         if self.is_main_process:
             checkpoint_path = (
                 Path(f"{self.output_path}/checkpoint-{optimizer_steps}/model.safetensors")
@@ -261,6 +262,15 @@ class PretrainingTrainer:
             )
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             state_dict = self.model.module.state_dict() if self.is_distributed else self.model.state_dict()
+            torch.save(
+                {
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "train_state": asdict(state),
+                    "rng_state": torch.cuda.get_rng_state_all(),
+                },
+                checkpoint_path.parent / "trainer_state.pt",
+            )
             save_file(state_dict, checkpoint_path)
 
     def _save_best_checkpoint(self):
@@ -398,7 +408,7 @@ class PretrainingTrainer:
                 output_device=self.local_rank,
                 find_unused_parameters=False,
                 gradient_as_bucket_view=True,
-                static_graph=False,
+                static_graph=True,
             )
         return config, tokenizer, model
 
@@ -431,6 +441,31 @@ class PretrainingTrainer:
         else:
             scheduler = CosineAnnealingLR(self.optimizer, T_max=self.arguments.max_steps)
         return scheduler
+
+    def _init_optimizer(self):
+        decay, no_decay = [], []
+        for name, param in self.model.named_parameters():
+            if not param.requires_grad:
+                continue
+
+            if "embed" in name:
+                no_decay.append(param)
+            elif param.ndim < 2:
+                no_decay.append(param)
+            else:
+                decay.append(param)
+
+        optimizer = optim.AdamW(
+            params=[
+                {"params": decay, "weight_decay": 0.1},
+                {"params": no_decay, "weight_decay": 0.0},
+            ],
+            lr=self.arguments.learning_rate,
+            eps=1e-8,
+            betas=(0.9, 0.95),
+            fused=True,
+        )
+        return optimizer
 
     @no_type_check
     @torch.no_grad()

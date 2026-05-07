@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class TrainingArguments(BaseModel):
     output_dir: Annotated[str, Field(description="模型权重输出目录")] = "weight"
-    learning_rate: Annotated[float, Field(description="优化器的基础学习率")] = 5e-4
+    learning_rate: Annotated[float, Field(description="优化器的基础学习率")] = 2e-4
     per_device_train_batch_size: Annotated[int, Field(description="单卡训练时每个 step 的 batch size")] = 8
     per_device_eval_batch_size: Annotated[int, Field(description="单卡评估时的 batch size")] = 8
     max_steps: Annotated[int, Field(description="最大训练步数")] = -1

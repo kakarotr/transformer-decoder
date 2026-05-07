@@ -1,176 +1,93 @@
+"""
+PackedTokenDataset
+
+从 tokenize.py 产出的 .bin shard 文件中读取定长序列，供 DataLoader 使用。
+
+文件格式：
+  每个 shard-{n}.bin 是 shape=(N, SEQ_LEN) 的 uint16 numpy 数组（raw binary）。
+  N 可以不等于 SHARD_SIZE（最后一个 shard 可能更小）。
+
+设计决策：
+  - 使用 np.memmap 惰性映射，避免一次性加载全部数据到内存。
+  - memmap 对象按文件索引缓存在 dict 中，多 worker 场景下每个 worker 进程
+    持有自己的缓存副本（fork/spawn 均安全）。
+  - __getitem__ 返回 torch.int64 tensor（供 embedding 层直接使用）。
+"""
+
 import bisect
-import json
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+SEQ_LEN = 2048  # 与 tokenize.py 保持一致
 
-class PackedTokenDataset(Dataset[torch.Tensor]):
-    def __init__(
-        self,
-        path: str | Path,
-        *,
-        dtype: str | None = None,
-        seq_len: int | None = None,
-    ):
-        super().__init__()
-        self.data_dir = Path(path)
 
-        meta_files = sorted(self.data_dir.glob("*.json"))
-        meta_files = [p for p in meta_files if not p.name.endswith("_summary.json")]
+class PackedTokenDataset(Dataset):
+    def __init__(self, data_dir: Path, seq_len: int = SEQ_LEN):
+        """
+        Args:
+            data_dir: 包含 shard-*.bin 文件的目录（train/ 或 eval/）。
+            seq_len:  每条序列的 token 数，必须与生成时一致。
+        """
+        self.seq_len = seq_len
+        self.files: list[Path] = sorted(data_dir.glob("shard-*.bin"))
+        if not self.files:
+            raise FileNotFoundError(f"No shard-*.bin files found in: {data_dir}")
 
-        self.shards: list[dict] = []
-        self.cum_blocks: list[int] = []
-        total_blocks = 0
-
-        expected_dtype: np.dtype | None = np.dtype(dtype) if dtype is not None else None
-        expected_seq_len = seq_len
-
-        for meta_path in meta_files:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            bin_file = meta.get("bin_file")
-            bin_path = self.data_dir / bin_file
-
-            shard_dtype = np.dtype(meta["dtype"])
-            shard_seq_len = int(meta["seq_len"])
-            num_tokens = int(meta["num_tokens"])
-            num_blocks = int(meta["num_blocks"])
-
-            if num_tokens != num_blocks * shard_seq_len:
+        # 每个 shard 的序列数（由文件大小推断）
+        self.sizes: list[int] = []
+        for f in self.files:
+            byte_size = f.stat().st_size
+            n_seqs, remainder = divmod(byte_size, seq_len * 2)  # uint16 = 2 bytes
+            if remainder != 0:
                 raise ValueError(
-                    f"Invalid shard meta: {meta_path}, "
-                    f"num_tokens({num_tokens}) != num_blocks({num_blocks}) * seq_len({shard_seq_len})"
+                    f"File size of {f} ({byte_size} bytes) is not divisible by "
+                    f"seq_len * 2 = {seq_len * 2}. File may be corrupted."
                 )
+            self.sizes.append(n_seqs)
 
-            if expected_dtype is None:
-                expected_dtype = shard_dtype
-            elif shard_dtype != expected_dtype:
-                raise ValueError(f"Inconsistent dtype across shards: got {shard_dtype}, expected {expected_dtype}")
+        # 前缀和，用于 O(log n) 的全局 index → (file_idx, local_idx) 映射
+        self._offsets: list[int] = [0]
+        for n in self.sizes:
+            self._offsets.append(self._offsets[-1] + n)
 
-            if expected_seq_len is None:
-                expected_seq_len = shard_seq_len
-            elif shard_seq_len != expected_seq_len:
-                raise ValueError(
-                    f"Inconsistent seq_len across shards: got {shard_seq_len}, expected {expected_seq_len}"
-                )
+        self._total: int = self._offsets[-1]
 
-            self.shards.append(
-                {
-                    "meta_path": meta_path,
-                    "bin_path": bin_path,
-                    "dtype": shard_dtype,
-                    "seq_len": shard_seq_len,
-                    "num_tokens": num_tokens,
-                    "num_blocks": num_blocks,
-                }
-            )
-            total_blocks += num_blocks
-            self.cum_blocks.append(total_blocks)
-
-        if expected_dtype is None or expected_seq_len is None:
-            raise ValueError("Failed to infer dataset dtype / seq_len")
-
-        self.dtype = expected_dtype
-        self.seq_len = expected_seq_len
-        self.total_blocks = total_blocks
-        self._memmaps: dict[int, np.memmap] = {}
+        # memmap 缓存（惰性初始化，worker-local）
+        self._memmaps: dict[int, np.ndarray] = {}
 
     def __len__(self) -> int:
-        return self.total_blocks
+        return self._total
 
-    def _normalize_index(self, index: int) -> int:
-        if index < 0:
-            index += self.total_blocks
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        if idx < 0 or idx >= self._total:
+            raise IndexError(f"Index {idx} out of range [0, {self._total})")
 
-        if index < 0 or index >= self.total_blocks:
-            raise IndexError(f"index out of range: {index}")
+        # 二分查找：找到 idx 属于哪个 shard
+        file_idx = bisect.bisect_right(self._offsets, idx) - 1
+        local_idx = idx - self._offsets[file_idx]
 
-        return index
+        mm = self._get_memmap(file_idx)
+        # copy() 防止返回 memmap view 导致多 worker 竞争
+        seq = mm[local_idx].astype(np.int64, copy=True)
+        return torch.from_numpy(seq)
 
-    def _locate_block(self, index: int) -> tuple[int, int]:
-        shard_idx = bisect.bisect_right(self.cum_blocks, index)
-        block_start = 0 if shard_idx == 0 else self.cum_blocks[shard_idx - 1]
-        local_block_idx = index - block_start
-        return shard_idx, local_block_idx
-
-    def _read_one_block(self, shard_idx: int, local_block_idx: int) -> torch.Tensor:
-        mm = self._get_memmap(shard_idx)
-        token_start = local_block_idx * self.seq_len
-        token_end = token_start + self.seq_len
-
-        if self.dtype == np.int64:
-            block = mm[token_start:token_end]
-        else:
-            block = np.asarray(mm[token_start:token_end], dtype=np.int64)
-
-        return torch.from_numpy(block)
-
-    def __getitem__(self, index: int) -> torch.Tensor:
-        index = self._normalize_index(index)
-        shard_idx, local_block_idx = self._locate_block(index)
-        return self._read_one_block(shard_idx, local_block_idx)
-
-    def __getitems__(self, indices: list[int]) -> list[torch.Tensor]:
-        if not indices:
-            return []
-
-        normalized = [self._normalize_index(i) for i in indices]
-        outputs: list[torch.Tensor | None] = [None] * len(normalized)
-
-        grouped: dict[int, list[tuple[int, int]]] = {}
-        for out_pos, index in enumerate(normalized):
-            shard_idx, local_block_idx = self._locate_block(index)
-            grouped.setdefault(shard_idx, []).append((out_pos, local_block_idx))
-
-        for shard_idx, items in grouped.items():
-            mm = self._get_memmap(shard_idx)
-
-            items.sort(key=lambda x: x[1])
-
-            run_start = 0
-            while run_start < len(items):
-                run_end = run_start + 1
-                while run_end < len(items):
-                    prev_local = items[run_end - 1][1]
-                    curr_local = items[run_end][1]
-                    if curr_local != prev_local + 1:
-                        break
-                    run_end += 1
-
-                run_items = items[run_start:run_end]
-                first_local = run_items[0][1]
-                last_local = run_items[-1][1]
-
-                token_start = first_local * self.seq_len
-                token_end = (last_local + 1) * self.seq_len
-
-                if self.dtype == np.int64:
-                    chunk = mm[token_start:token_end]
-                else:
-                    chunk = np.asarray(mm[token_start:token_end], dtype=np.int64)
-
-                chunk = chunk.reshape(-1, self.seq_len)
-
-                for row_idx, (out_pos, _) in enumerate(run_items):
-                    outputs[out_pos] = torch.from_numpy(chunk[row_idx])
-
-                run_start = run_end
-
-        result = cast(list[torch.Tensor], outputs)
-        return result
-
-    def _get_memmap(self, shard_idx: int):
-        mm = self._memmaps.get(shard_idx)
-        if mm is None:
-            shard = self.shards[shard_idx]
-            mm = np.memmap(
-                shard["bin_path"],
+    def _get_memmap(self, file_idx: int) -> np.ndarray:
+        if file_idx not in self._memmaps:
+            self._memmaps[file_idx] = np.memmap(
+                self.files[file_idx],
+                dtype=np.uint16,
                 mode="r",
-                dtype=shard["dtype"],
-                shape=(shard["num_tokens"],),
+                shape=(self.sizes[file_idx], self.seq_len),
             )
-            self._memmaps[shard_idx] = mm
-        return mm
+        return self._memmaps[file_idx]
+
+    def __repr__(self) -> str:
+        return (
+            f"PackedTokenDataset("
+            f"shards={len(self.files)}, "
+            f"sequences={self._total:,}, "
+            f"tokens={self._total * self.seq_len:,})"
+        )

@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow.parquet as pq
-from rich.columns import Columns
 from rich.console import Console
 from rich.live import Live
 from rich.progress import (
@@ -30,7 +29,6 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
-from rich.text import Text
 from transformers import AutoTokenizer
 
 # ── 配置 ─────────────────────────────────────────────────────────────────────
