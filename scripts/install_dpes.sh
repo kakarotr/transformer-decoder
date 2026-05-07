@@ -1,0 +1,1 @@
+pip install transformers tokenizers datasets pydantic rich safetensors

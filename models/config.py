@@ -52,3 +52,12 @@ class TransformerConfig(BaseModel):
             "total": one_layer_size * self.num_layers + embedding_size + norm_size + lm_head_size,
             "compture_size": total - embedding_size - lm_head_size,
         }
+
+
+if __name__ == "__main__":
+    from transformers import AutoTokenizer
+
+    with open("artifacts/config.json", mode="r") as f:
+        print(TransformerConfig.model_validate_json(f.read()).compute_size())
+    tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
+    print(len(tokenizer))

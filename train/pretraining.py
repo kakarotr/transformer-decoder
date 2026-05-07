@@ -380,7 +380,7 @@ class PretrainingTrainer:
         return train_dataloader, eval_dataloader
 
     def _get_tokenizer_and_model(self, model_path: str):
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        tokenizer = AutoTokenizer.from_pretrained(f"{model_path}/base")
 
         with open(f"{model_path}/config.json", mode="r", encoding="utf-8") as f:
             config = TransformerConfig.model_validate_json(f.read())
