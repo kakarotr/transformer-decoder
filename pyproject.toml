@@ -24,6 +24,8 @@ dependencies = [
     "triton>=3.3.0; sys_platform == 'linux'",
     "liger-kernel>=0.7.0,<0.8.0; sys_platform == 'linux'",
     "opencc-python-reimplemented>=0.1.7",
+    "openai>=2.36.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [tool.uv.sources]

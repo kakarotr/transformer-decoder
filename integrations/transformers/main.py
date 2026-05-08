@@ -70,7 +70,7 @@ model = GllamaForCausalLM.from_pretrained("artifacts", config=config).to(device)
 tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
 
 inputs = tokenizer(
-    "迄今人类所有的食物确实都来自野生生物",
+    "春天来了，万物复苏",
     return_tensors="pt",
     return_token_type_ids=False,
 )
