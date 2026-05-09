@@ -26,6 +26,7 @@ dependencies = [
     "opencc-python-reimplemented>=0.1.7",
     "openai>=2.36.0",
     "python-dotenv>=1.2.2",
+    "pdf2image>=1.17.0",
 ]
 
 [tool.uv.sources]
