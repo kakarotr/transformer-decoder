@@ -29,7 +29,7 @@ client = OpenAI(base_url=base_url, api_key=api_key)
 console = Console()
 
 
-def extract(image_path: str, output_path: str):
+def extract(image_path: str, output_path: str, start: int = 0):
     image_dir = Path(image_path)
     output_dir = Path(output_path) / image_dir.name
 
@@ -48,6 +48,8 @@ def extract(image_path: str, output_path: str):
     console.print(f"[bold cyan]💾 输出:[/] {output_dir}")
     console.print(f"[bold cyan]🖼  共计:[/] {len(images)} 张\n")
 
+    last_paragraph = ""
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold blue]提取中"),
@@ -62,9 +64,12 @@ def extract(image_path: str, output_path: str):
 
         for image in images:
             name = image.stem
+            if int(name) < start:
+                continue
             progress.update(task, filename=f"{name}.png")
 
-            result = invoke(image, prompt)
+            result = invoke(image, prompt, last_paragraph)
+            last_paragraph = result.paragraphs[-1].content
 
             with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
                 f.write(result.model_dump_json(indent=2))
@@ -74,20 +79,22 @@ def extract(image_path: str, output_path: str):
     console.print(f"\n[bold green]✅ 完成！[/] 已提取 {len(images)} 张，结果保存至 {output_dir}")
 
 
-def invoke(image: Path, prompt: str):
+def invoke(image: Path, prompt: str, last_paragraph: str):
+    user_input = []
+    if last_paragraph:
+        user_input.append({"type": "text", "text": f"【上一页末尾段落】：「{last_paragraph}」\n\n请提取以下页面内容："})
+    user_input.append(
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{to_base64(image)}"},
+        }
+    )
+
     response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": prompt},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{to_base64(image)}"},
-                    }
-                ],
-            },
+            {"role": "user", "content": user_input},
         ],
         temperature=0.1,
         response_format={"type": "json_object"},
@@ -116,4 +123,5 @@ if __name__ == "__main__":
     extract(
         image_path="/Users/linyongjin/Sengoku/Image/战国日本1：时间的滋味",
         output_path="/Users/linyongjin/Sengoku/Json",
+        start=98,
     )
