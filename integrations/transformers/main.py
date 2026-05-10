@@ -27,10 +27,10 @@ def greedy_decode():
 def sample():
     outputs = model.generate(
         **inputs,
-        max_new_tokens=512,
+        max_new_tokens=100,
         do_sample=True,
-        temperature=0.8,
-        top_p=0.9,
+        temperature=0.3,
+        top_p=0.85,
         repetition_penalty=1.1,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.pad_token_id,
@@ -70,7 +70,7 @@ model = GllamaForCausalLM.from_pretrained("artifacts", config=config).to(device)
 tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
 
 inputs = tokenizer(
-    "春天来了，万物复苏",
+    """近年来，随着互联网的快速发展，""",
     return_tensors="pt",
     return_token_type_ids=False,
 )
