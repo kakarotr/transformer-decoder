@@ -6,7 +6,7 @@ from transformers import GenerationMixin, PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from integrations.transformers.config import GllamaConfig
-from models.torch.decoder import Decoder
+from models.liger.decoder import Decoder
 
 
 class GllamaPreTrainedModel(PreTrainedModel):

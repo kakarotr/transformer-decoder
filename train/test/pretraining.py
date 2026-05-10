@@ -3,7 +3,7 @@ from safetensors.torch import load_file
 from transformers import AutoTokenizer
 
 from models.config import TransformerConfig
-from models.torch.causal_lm import CausalLanguageModel
+from models.liger.causal_lm import CausalLanguageModel
 
 
 @torch.no_grad()

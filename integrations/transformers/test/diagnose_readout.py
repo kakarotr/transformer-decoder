@@ -16,6 +16,7 @@ from safetensors.torch import load_file
 from transformers import AutoTokenizer
 
 from models.config import TransformerConfig
+from models.liger.causal_lm import CausalLanguageModel
 
 # =========================
 # data classes
@@ -83,13 +84,7 @@ def load_config(model_path: Path) -> TransformerConfig:
 
 
 def build_model(config: TransformerConfig, device: torch.device):
-    os_name = platform.system()
-    if os_name == "Linux":
-        import models.liger.causal_lm as causal_lm_module
-    else:
-        import models.torch.causal_lm as causal_lm_module
-
-    model = causal_lm_module.CausalLanguageModel(config=config).to(device)
+    model = CausalLanguageModel(config=config).to(device)
     model.eval()
     return model
 

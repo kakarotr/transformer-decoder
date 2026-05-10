@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 from integrations.transformers.config import GllamaConfig
 from integrations.transformers.model import GllamaForCausalLM
 from models.config import TransformerConfig
-from models.torch.causal_lm import CausalLanguageModel
+from models.liger.causal_lm import CausalLanguageModel
 
 
 @torch.no_grad()
