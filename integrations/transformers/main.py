@@ -1,6 +1,6 @@
-from tokenizers import decoders
 import torch
 import torch.nn.functional as F
+from tokenizers import decoders
 from transformers import AutoTokenizer
 
 from integrations.transformers.config import GllamaConfig
@@ -29,8 +29,8 @@ def sample():
         **inputs,
         max_new_tokens=100,
         do_sample=True,
-        temperature=0.3,
-        top_p=0.85,
+        temperature=0.9,
+        top_k=50,
         repetition_penalty=1.1,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.pad_token_id,

@@ -117,11 +117,7 @@ class GllamaForCausalLM(GllamaPreTrainedModel, GenerationMixin):
         if not return_dict:
             return (loss, logits, None)
 
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=None,
-        )
+        return CausalLMOutputWithPast(loss=loss, logits=logits, past_key_values=None, hidden_states=(hidden_states,))
 
     def prepare_inputs_for_generation(
         self,
