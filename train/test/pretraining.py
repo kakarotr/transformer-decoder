@@ -80,25 +80,10 @@ if __name__ == "__main__":
     state_dict = load_file("artifacts/checkpoints-60000/model.safetensors")
 #     model.load_state_dict(state_dict)
 
-#     prompt = """苹果的颜色是：红色
-# 香蕉的颜色是：黄色
-# 天空的颜色是："""
+    prompt = """苹果的颜色是：红色
+香蕉的颜色是：黄色
+天空的颜色是："""
 
-#     print(repr(generate(model, tokenizer, prompt)))
+    print(repr(generate(model, tokenizer, prompt)))
 #     inspect_next_token(model, tokenizer, prompt)
-
-    result = model.load_state_dict(state_dict, strict=False)
-
-    print("Missing keys:", result.missing_keys)
-    print("Unexpected keys:", result.unexpected_keys)
-
-    lm_head_w = model.lm_head.weight
-    print("lm_head weight norm:", lm_head_w.norm().item())
-    print("lm_head weight std:", lm_head_w.std().item())
-
-    print("embedding std:  ", model.decoder.embeddings.weight.std().item())
-    print("q_proj std (L0):", model.decoder.layers[0].attention.q_proj.weight.std().item())
-    print("down_proj std(L0):", model.decoder.layers[0].mlp.down_proj.weight.std().item())
-    print("lm_head std:    ", model.lm_head.weight.std().item())
-
 
