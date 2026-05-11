@@ -1,1 +1,1 @@
-pip install transformers tokenizers datasets pydantic rich safetensors
+pip install transformers tokenizers datasets pydantic rich safetensors liger_kernel

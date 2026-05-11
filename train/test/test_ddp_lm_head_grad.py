@@ -1,7 +1,9 @@
 import os
 import subprocess
+from contextlib import nullcontext
 
 import torch
+import torch.distributed
 from liger_kernel.transformers import LigerFusedLinearCrossEntropyLoss
 from transformers import AutoTokenizer
 
@@ -10,8 +12,8 @@ from models.liger.causal_lm import CausalLanguageModel
 
 os.environ["TRITON_PRINT_AUTOTUNING"] = "1"
 
-backend = "nccl" if torch.dist.is_nccl_available() else "gloo"
-torch.dist.init_process_group(backend=backend)
+backend = "nccl" if torch.distributed.is_nccl_available() else "gloo"
+torch.distributed.init_process_group(backend=backend)
 local_rank = int(os.environ["LOCAL_RANK"])
 world_size = int(os.environ["WORLD_SIZE"])
 torch.cuda.set_device(local_rank)
@@ -36,17 +38,24 @@ sample_ids = tokenizer("中国的首都是北京。", return_tensors="pt")["inpu
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 optimizer.zero_grad()
 
-with torch.autocast("cuda", dtype=torch.bfloat16):
-    hidden_states = model(sample_ids)
-    print(f"hidden states type: {hidden_states.dtype}")
-    print(f"lm weight type: {model.lm_head.weight.dtype}")
-    weight = model.lm_head.weight.to(hidden_states.dtype)
+gradient_accumulation_steps = 4
 
-    loss_fn = LigerFusedLinearCrossEntropyLoss()
+optimizer.zero_grad(set_to_none=True)
 
-    shift_h = hidden_states[:, :-1].contiguous().view(-1, hidden_states.size(-1))
-    shift_l = sample_ids[:, 1:].contiguous().view(-1)
-    loss = loss_fn(weight, shift_h, shift_l)
+for step in range(gradient_accumulation_steps):
+    is_update_step = (step + 1) == gradient_accumulation_steps
+    sync_ctx = model.no_sync() if not is_update_step else nullcontext()
+
+    with sync_ctx:
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            hidden_states = model(sample_ids)
+            weight = model.module.lm_head.weight.to(hidden_states.dtype)
+
+            loss_fn = LigerFusedLinearCrossEntropyLoss()
+
+            shift_h = hidden_states[:, :-1].contiguous().view(-1, hidden_states.size(-1))
+            shift_l = sample_ids[:, 1:].contiguous().view(-1)
+            loss = loss_fn(weight, shift_h, shift_l) / gradient_accumulation_steps
 
 loss.backward()
 
