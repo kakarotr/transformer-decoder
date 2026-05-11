@@ -111,3 +111,19 @@ print(f"embedding mean: {embed_weight.mean():.6f}")
 
 row_norms = embed_weight.norm(dim=1)
 print(f"embedding row norm: mean={row_norms.mean():.4f}, max={row_norms.max():.4f}, std={row_norms.std():.4f}")
+print("\n\n")
+
+row_norms = lm_weight.norm(dim=1)
+
+# 看高频 token（假设低 id = 高频）
+print("前100个 token 的 row norm 统计：")
+print(f"  mean={row_norms[:100].mean():.4f}, max={row_norms[:100].max():.4f}")
+
+# 对比低频 token
+print("后1000个 token 的 row norm 统计：")
+print(f"  mean={row_norms[-1000:].mean():.4f}, max={row_norms[-1000:].max():.4f}")
+
+# 整体分布
+print(f"全体 row norm: mean={row_norms.mean():.4f}, max={row_norms.max():.4f}")
+print(f"row norm > 1.0 的 token 数量: {(row_norms > 1.0).sum().item()}")
+print(f"row norm > 1.5 的 token 数量: {(row_norms > 1.5).sum().item()}")
