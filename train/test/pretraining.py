@@ -77,13 +77,12 @@ if __name__ == "__main__":
     with open("artifacts/config.json", mode="r", encoding="utf-8") as f:
         config = TransformerConfig.model_validate_json(f.read())
     model = CausalLanguageModel(config).to("cuda")
-    state_dict = load_file("artifacts/checkpoints-60000/model.safetensors")
-#     model.load_state_dict(state_dict)
+    state_dict = load_file("artifacts/model.safetensors")
+    model.load_state_dict(state_dict)
 
     prompt = """苹果的颜色是：红色
 香蕉的颜色是：黄色
 天空的颜色是："""
 
     print(repr(generate(model, tokenizer, prompt)))
-#     inspect_next_token(model, tokenizer, prompt)
 
