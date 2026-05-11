@@ -8,8 +8,8 @@ from transformers import AutoTokenizer
 from transformers.tokenization_utils_tokenizers import PreTrainedTokenizerFast
 
 from models.config import TransformerConfig
-from models.torch.causal_lm import CausalLanguageModel
-from models.torch.loss import compute_loss
+from models.liger.causal_lm import CausalLanguageModel
+from models.liger.loss import compute_loss
 from train.dataset import PackedTokenDataset
 
 sample = """
