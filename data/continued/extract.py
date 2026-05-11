@@ -69,10 +69,12 @@ def extract(image_path: str, output_path: str, start: int = 0):
             progress.update(task, filename=f"{name}.png")
 
             result = invoke(image, prompt, last_paragraph)
-            last_paragraph = result.paragraphs[-1].content
 
             if result.paragraphs and result.paragraphs[0].type != "title":
                 result.first_paragraph_has_indent = is_continuation(last_paragraph, result.first_paragraph_has_indent)
+
+            if result.paragraphs and result.paragraphs[-1].type != "title":
+                last_paragraph = result.paragraphs[-1].content
 
             with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
                 f.write(result.model_dump_json(indent=2))
@@ -142,5 +144,5 @@ if __name__ == "__main__":
     extract(
         image_path="/Users/linyongjin/Sengoku/Image/战国日本2：败者的美学",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=20
+        start=46,
     )
