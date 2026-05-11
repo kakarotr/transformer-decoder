@@ -56,8 +56,7 @@ for step in range(gradient_accumulation_steps):
             shift_h = hidden_states[:, :-1].contiguous().view(-1, hidden_states.size(-1))
             shift_l = sample_ids[:, 1:].contiguous().view(-1)
             loss = loss_fn(weight, shift_h, shift_l) / gradient_accumulation_steps
-
-loss.backward()
+        loss.backward()
 
 grad = model.module.lm_head.weight.grad
 print(f"grad is None: {grad is None}")
