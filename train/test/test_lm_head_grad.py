@@ -8,7 +8,7 @@ from models.liger.causal_lm import CausalLanguageModel
 tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
 with open("artifacts/config.json", mode="r", encoding="utf-8") as f:
     config = TransformerConfig.model_validate_json(f.read())
-model = CausalLanguageModel(config=config)
+model = CausalLanguageModel(config=config).to("cuda")
 
 model.train()
 sample_ids = tokenizer("中国的首都是北京。", return_tensors="pt")["input_ids"].to("cuda")

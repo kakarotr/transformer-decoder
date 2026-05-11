@@ -71,6 +71,9 @@ def extract(image_path: str, output_path: str, start: int = 0):
             result = invoke(image, prompt, last_paragraph)
             last_paragraph = result.paragraphs[-1].content
 
+            if result.paragraphs and result.paragraphs[0].type != "title":
+                result.first_paragraph_has_indent = is_continuation(last_paragraph, result.first_paragraph_has_indent)
+
             with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
                 f.write(result.model_dump_json(indent=2))
 
@@ -81,8 +84,8 @@ def extract(image_path: str, output_path: str, start: int = 0):
 
 def invoke(image: Path, prompt: str, last_paragraph: str):
     user_input = []
-    if last_paragraph:
-        user_input.append({"type": "text", "text": f"【上一页末尾段落】：「{last_paragraph}」\n\n请提取以下页面内容："})
+    # if last_paragraph:
+    #     user_input.append({"type": "text", "text": f"【上一页末尾段落】：「{last_paragraph}」\n\n请提取以下页面内容："})
     user_input.append(
         {
             "type": "image_url",
@@ -119,9 +122,25 @@ def to_base64(image: Path):
         return base64_bytes.decode("utf-8")
 
 
+def is_continuation(last_paragraph: str | None, first_paragraph_has_indent: bool):
+    if not last_paragraph:
+        return first_paragraph_has_indent
+
+    text = last_paragraph.rstrip()
+    last_char = text[-1]
+    if last_char == "\u201d":
+        text = text[:-1].rstrip()
+        last_char = text[-1] if text else ""
+
+    if last_char not in {"。", "？", "！", "…"}:
+        return False
+
+    return first_paragraph_has_indent
+
+
 if __name__ == "__main__":
     extract(
         image_path="/Users/linyongjin/Sengoku/Image/战国日本1：时间的滋味",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=143,
+        start=167,
     )
