@@ -80,9 +80,7 @@ if __name__ == "__main__":
     state_dict = load_file("artifacts/model.safetensors")
     model.load_state_dict(state_dict)
 
-    prompt = """苹果的颜色是：红色
-香蕉的颜色是：黄色
-天空的颜色是："""
-
-    print(repr(generate(model, tokenizer, prompt)))
-
+    while True:
+        prompt = input("请输入：")
+        print(generate(model, tokenizer, prompt))
+        print("\n")
