@@ -140,7 +140,6 @@ def is_continuation(last_paragraph: str | None, first_paragraph_has_indent: bool
 
 if __name__ == "__main__":
     extract(
-        image_path="/Users/linyongjin/Sengoku/Image/战国日本1：时间的滋味",
+        image_path="/Users/linyongjin/Sengoku/Image/战国日本2：败者的美学",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=242,
     )

@@ -1,16 +1,14 @@
 import math
-from pathlib import Path
 
 import torch
+import torch.nn.functional as F
+from liger_kernel.transformers import LigerFusedLinearCrossEntropyLoss
 from safetensors.torch import load_file
-from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from transformers.tokenization_utils_tokenizers import PreTrainedTokenizerFast
 
 from models.config import TransformerConfig
 from models.liger.causal_lm import CausalLanguageModel
-from models.liger.loss import compute_loss
-from train.dataset import PackedTokenDataset
 
 sample = """
 AB小报No.625 | 14亿支票未被存入，CRA喊7万多人收钱；快来了解航班延误取消的赔偿知识；联邦正在起草临时牙科保健计划
@@ -134,6 +132,17 @@ if __name__ == "__main__":
     with torch.no_grad():
         with torch.autocast("cuda", dtype=torch.bfloat16):
             hidden_states = model(input_ids)
-            loss = compute_loss(hidden_states, model.lm_head.weight, input_ids)
+            weight = model.lm_head.weight.to(hidden_states.dtype)
 
-    print(f"loss: {loss.item():.4f}, ppl: {math.exp(loss.item()):.2f}")
+            shift_h = hidden_states[:, :-1].contiguous()
+            shift_l = input_ids[:, 1:].contiguous()
+            flat_h = shift_h.view(-1, shift_h.size(-1))
+            flat_l = shift_l.view(-1)
+
+            liger_loss = LigerFusedLinearCrossEntropyLoss()(weight, flat_h, flat_l)
+
+            logits = F.linear(flat_h, weight).float()
+            std_loss = F.cross_entropy(logits, flat_l)
+
+print(f"Liger loss: {liger_loss.item():.4f} ppl: {math.exp(liger_loss.item())}")
+print(f"Standard CE: {std_loss.item():.4f} ppl: {math.exp(std_loss.item())}")
