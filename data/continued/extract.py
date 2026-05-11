@@ -84,8 +84,8 @@ def extract(image_path: str, output_path: str, start: int = 0):
 
 def invoke(image: Path, prompt: str, last_paragraph: str):
     user_input = []
-    # if last_paragraph:
-    #     user_input.append({"type": "text", "text": f"【上一页末尾段落】：「{last_paragraph}」\n\n请提取以下页面内容："})
+    if last_paragraph:
+        user_input.append({"type": "text", "text": f"【上一页末尾段落】：「{last_paragraph}」\n\n请提取以下页面内容："})
     user_input.append(
         {
             "type": "image_url",
@@ -142,5 +142,5 @@ if __name__ == "__main__":
     extract(
         image_path="/Users/linyongjin/Sengoku/Image/战国日本1：时间的滋味",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=167,
+        start=182,
     )

@@ -1,9 +1,14 @@
+import os
+import subprocess
+
 import torch
 from liger_kernel.transformers import LigerFusedLinearCrossEntropyLoss
 from transformers import AutoTokenizer
 
 from models.config import TransformerConfig
 from models.liger.causal_lm import CausalLanguageModel
+
+os.environ["TRITON_PRINT_AUTOTUNING"] = "1"
 
 tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
 with open("artifacts/config.json", mode="r", encoding="utf-8") as f:

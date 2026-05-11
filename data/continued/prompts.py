@@ -37,6 +37,11 @@ base_section = """
 - 起始位置明显偏左，与其他段落的续行对齐而非首行：`first_paragraph_has_indent = false`，检测结束
 - 页面只有一个段落无法对比，或视觉上无法确认：继续第三步
 
+**第三步（仅在第二步无法确认时执行）：** 查看是否提供了【上一页末尾段落】：
+- 未提供：`first_paragraph_has_indent = true`，检测结束
+- 已提供，且末尾段落以句号、问号、感叹号等完整收尾：`first_paragraph_has_indent = true`
+- 已提供，且末尾段落无完整结尾标点，或语义明显未完结：`first_paragraph_has_indent = false`
+
 ## 对话提取
 
 - 人物对话（通常以引号包裹，或存在明显缩进的短句）识别为 `type: "dialogue"`
