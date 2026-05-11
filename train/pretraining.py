@@ -401,7 +401,7 @@ class PretrainingTrainer:
                 output_device=self.local_rank,
                 find_unused_parameters=False,
                 gradient_as_bucket_view=True,
-                static_graph=True,
+                static_graph=False,
             )
         return config, tokenizer, model
 
