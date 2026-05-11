@@ -36,3 +36,4 @@ with torch.autocast("cuda", dtype=torch.bfloat16):
 loss.backward()
 
 print(f"lm_head.weight.grad: {model.lm_head.weight.grad}")
+print(f"lm_head.weight.grad norm: {torch.norm(model.lm_head.weight.grad)}")
