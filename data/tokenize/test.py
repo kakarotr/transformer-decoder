@@ -18,7 +18,7 @@ def test_pre_tokenize():
 
 
 def test_md_token_in_vocab():
-    tokenizer: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained("artifacts/base")
+    tokenizer: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained("artifacts")
     vocab = tokenizer.get_vocab()
     candidates = ["#", "##", "###", "####", "```", "**", "`", "|", ">", "-", "."]
     missing = [t for t in candidates if t not in vocab]
@@ -55,4 +55,5 @@ def test_tokenize():
         print(repr("|".join([tokenizer.decode([token_id]) for token_id in token_ids])))
 
 
+test_md_token_in_vocab()
 test_tokenize()
