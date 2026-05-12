@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class TrainingArguments(BaseModel):
-    output_dir: Annotated[str, Field(description="模型权重输出目录")] = "weight"
     learning_rate: Annotated[float, Field(description="优化器的基础学习率")] = 2e-4
     per_device_train_batch_size: Annotated[int, Field(description="单卡训练时每个 step 的 batch size")] = 8
     per_device_eval_batch_size: Annotated[int, Field(description="单卡评估时的 batch size")] = 8
@@ -19,11 +18,6 @@ class TrainingArguments(BaseModel):
     eval_steps_ratio: Annotated[float, Field(description="评估间隔占总训练步数的比例")] = 0.05
     logging_steps: Annotated[int, Field(description="训练日志打印间隔")] = 100
     save_steps: Annotated[int, Field(description="模型保存间隔")] = 1000
-    log_dir: Annotated[str, Field(description="TensorBoard 日志输出目录")] = "/workspace"
-    flush_secs: Annotated[int, Field(description="TensorBoard 写入磁盘的刷新间隔（秒）")] = 30
-    use_torch_complie: Annotated[bool, Field(description="是否使用 torch.complie 优化")] = True
-    early_stopping_patience: int = 3
-    early_stopping_min_delta: float = 0.002
 
     # 派生字段：初始化后自动计算
     warmup_steps: Annotated[int, Field(description="warmup 的实际步数")] = 0

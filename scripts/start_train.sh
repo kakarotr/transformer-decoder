@@ -10,6 +10,4 @@ PYTHONPATH=$(pwd) python -m torch.distributed.run \
   --eval_steps_ratio 0.05 \
   --logging_steps 100 \
   --save_steps 10000 \
-  --max_grad_norm 1.0 \
-  --early_stopping_patience 0 \
-  --no-use_torch_complie
+  --max_grad_norm 1.0
