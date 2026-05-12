@@ -1,7 +1,7 @@
 from modelscope.hub.api import HubApi
 
 api = HubApi()
-api.login("ms-e2eb8794-9a83-4f6c-9fac-5ee4bba96891")
+api.login("ms-b4f6fcf3-3f96-4fd1-946b-8700911a3d1d")
 
 api.upload_folder(
     repo_id="kakarotter/Calix-Dataset",

@@ -21,8 +21,8 @@ special_tokens_dict = {
 
 def prepare_corpus(output_dir: Path) -> None:
     """将训练所需的 parquet 文件复制到 output_dir，供后续上传云主机。"""
-    finewiki_path = Path("/workspace/transformer-decoder-2/pretraining/finewiki")
-    fineweb_path = Path("/workspace/transformer-decoder-2/pretraining/Ultra-FineWeb")
+    finewiki_path = Path("F:/transformer-decoder/pretraining/clean_2/finewiki")
+    fineweb_path = Path("F:/transformer-decoder/pretraining/clean_2/Ultra-FineWeb")
 
     output_dir = Path(output_dir)
     finewiki_out = output_dir / "finewiki"
@@ -48,10 +48,14 @@ def prepare_corpus(output_dir: Path) -> None:
 
 def iter_corpus(corpus_dir: Path):
     """从 corpus_dir 下的所有 parquet 文件中迭代文本，供 tokenizer 训练。"""
+    print(f"{datetime.now().strftime('%H:%M:%S')} 开始采样训练数据...")
     corpus_dir = Path(corpus_dir)
+    texts = []
     for path in sorted(corpus_dir.rglob("*.parquet")):
         df = pd.read_parquet(path, columns=["text"])
-        yield from df["text"]
+        texts.extend(df["text"].tolist())
+    print(f"{datetime.now().strftime('%H:%M:%S')} 训练数据采样完成")
+    return texts
 
 
 def train_tokenizer(corpus_dir: Path, output_dir: Path) -> None:
@@ -106,7 +110,7 @@ def train_tokenizer(corpus_dir: Path, output_dir: Path) -> None:
 
 if __name__ == "__main__":
     # 本地运行：选文件并复制
-    prepare_corpus(Path("artifacts/corpus"))
+    prepare_corpus(Path("F:/transformer-decoder/pretraining/tokenize_corpus"))
 
     # 云主机上运行：直接从上传的目录训练
-    train_tokenizer(Path("artifacts/corpus"), Path("artifacts"))
+    # train_tokenizer(Path("artifacts/corpus"), Path("artifacts"))
