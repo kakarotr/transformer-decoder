@@ -54,22 +54,19 @@ class PretrainingTrainer:
     def __init__(
         self,
         *,
-        model_path: str,
         arguments: TrainingArguments,
-        data_dir: str,
-        output_path: str,
         training_stage: Literal["pretrain", "continued_pretrain"] = "pretrain",
     ):
         self.arguments = arguments
-        self.output_path = output_path
+        self.output_path = self.arguments.output_path
 
         self.is_distributed, self.world_size, self.local_rank, self.device = self._init_distributed()
         self.is_main_process = (not self.is_distributed) or dist.get_rank() == 0
         if self.is_main_process:
             print(self.arguments.model_dump_json(indent=2))
-        self.train_dataset, self.eval_dataset = self._load_dataset(data_dir)
+        self.train_dataset, self.eval_dataset = self._load_dataset(self.arguments.data_path)
         self.train_dataloader, self.eval_dataloader = self._load_dataloader()
-        self.config, self.tokenizer, self.model = self._get_tokenizer_and_model(model_path)
+        self.config, self.tokenizer, self.model = self._get_tokenizer_and_model(self.arguments.model_path)
         self.compute_loss, self.eval_compute_loss = self._get_loss_fn()
         self.token_per_update = (
             self.arguments.per_device_train_batch_size
@@ -507,10 +504,5 @@ class PretrainingTrainer:
 
 if __name__ == "__main__":
     arguments = parse_args()
-    trainer = PretrainingTrainer(
-        model_path="artifacts",
-        arguments=arguments,
-        data_dir="data/pretraining",
-        output_path="artifacts",
-    )
+    trainer = PretrainingTrainer(arguments=arguments)
     trainer()

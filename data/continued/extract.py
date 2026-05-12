@@ -144,5 +144,5 @@ if __name__ == "__main__":
     extract(
         image_path="/Users/linyongjin/Sengoku/Image/战国日本2：败者的美学",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=97,
+        start=231,
     )

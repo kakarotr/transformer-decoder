@@ -10,4 +10,7 @@ PYTHONPATH=$(pwd) python -m torch.distributed.run \
   --eval_steps_ratio 0.05 \
   --logging_steps 100 \
   --save_steps 10000 \
-  --max_grad_norm 1.0
+  --max_grad_norm 1.0 \
+  --model_path artifacts \
+  --data_path ... \
+  --output_path ...

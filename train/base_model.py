@@ -6,22 +6,25 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class TrainingArguments(BaseModel):
-    learning_rate: Annotated[float, Field(description="优化器的基础学习率")] = 2e-4
-    per_device_train_batch_size: Annotated[int, Field(description="单卡训练时每个 step 的 batch size")] = 8
-    per_device_eval_batch_size: Annotated[int, Field(description="单卡评估时的 batch size")] = 8
-    max_steps: Annotated[int, Field(description="最大训练步数")] = -1
-    num_train_epochs: Annotated[int, Field(description="训练轮数")] = -1
-    gradient_accumulation_steps: Annotated[int, Field(description="梯度累积步数")] = 1
-    max_grad_norm: Annotated[float, Field(description="梯度裁剪阈值")] = 1.0
-    warmup_steps_ratio: Annotated[float, Field(description="warmup 阶段占总训练步数的比例")] = 0.03
-    warmup_start_factor: Annotated[float, Field(description="warmup 起始学习率系数")] = 0.1
-    eval_steps_ratio: Annotated[float, Field(description="评估间隔占总训练步数的比例")] = 0.05
-    logging_steps: Annotated[int, Field(description="训练日志打印间隔")] = 100
-    save_steps: Annotated[int, Field(description="模型保存间隔")] = 1000
+    model_path: str = Field(description="模型、分词器配置路径")
+    data_path: str = Field(description="训练数据路径")
+    output_path: str = Field(description="模型权重输出路径")
+    learning_rate: float = Field(default=2e-4, description="优化器的基础学习率")
+    per_device_train_batch_size: int = Field(default=8, description="单卡训练时每个 step 的 batch size")
+    per_device_eval_batch_size: int = Field(default=8, description="单卡评估时的 batch size")
+    max_steps: int = Field(default=-1, description="最大训练步数")
+    num_train_epochs: int = Field(default=-1, description="训练轮数")
+    gradient_accumulation_steps: int = Field(default=1, description="梯度累积步数")
+    max_grad_norm: float = Field(default=1.0, description="梯度裁剪阈值")
+    warmup_steps_ratio: float = Field(default=0.03, description="warmup 阶段占总训练步数的比例")
+    warmup_start_factor: float = Field(default=0.1, description="warmup 起始学习率系数")
+    eval_steps_ratio: float = Field(default=0.05, description="评估间隔占总训练步数的比例")
+    logging_steps: int = Field(default=100, description="训练日志打印间隔")
+    save_steps: int = Field(default=1000, description="模型保存间隔")
 
     # 派生字段：初始化后自动计算
-    warmup_steps: Annotated[int, Field(description="warmup 的实际步数")] = 0
-    eval_steps: Annotated[int, Field(description="实际评估间隔步数")] = 0
+    warmup_steps: int = Field(default=0, description="warmup 的实际步数")
+    eval_steps: int = Field(default=0, description="实际评估间隔步数")
 
     @model_validator(mode="after")
     def compute_steps(self):
