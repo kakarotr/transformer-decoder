@@ -18,9 +18,9 @@ class TrainingArguments(BaseModel):
     max_grad_norm: float = Field(default=1.0, description="梯度裁剪阈值")
     warmup_steps_ratio: float = Field(default=0.03, description="warmup 阶段占总训练步数的比例")
     warmup_start_factor: float = Field(default=0.1, description="warmup 起始学习率系数")
-    eval_steps_ratio: float = Field(default=0.05, description="评估间隔占总训练步数的比例")
+    eval_steps_ratio: float = Field(default=0.02, description="评估间隔占总训练步数的比例")
     logging_steps: int = Field(default=100, description="训练日志打印间隔")
-    save_steps: int = Field(default=1000, description="模型保存间隔")
+    save_steps: int = Field(default=5000, description="模型保存间隔")
 
     # 派生字段：初始化后自动计算
     warmup_steps: int = Field(default=0, description="warmup 的实际步数")

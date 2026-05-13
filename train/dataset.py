@@ -21,11 +21,16 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-SEQ_LEN = 2048  # 与 tokenize.py 保持一致
+from models.config import TransformerConfig
+
+with open("artifacts/config.json", mode="r") as f:
+    config = TransformerConfig.model_validate_json(f.read())
+
+SEQ_LEN = config.max_position_embeddings
 
 
 class PackedTokenDataset(Dataset):
-    def __init__(self, data_dir: Path, seq_len: int = SEQ_LEN):
+    def __init__(self, data_dir: Path, seq_len: int):
         """
         Args:
             data_dir: 包含 shard-*.bin 文件的目录（train/ 或 eval/）。

@@ -57,6 +57,7 @@ class PretrainingTrainer:
         arguments: TrainingArguments,
         training_stage: Literal["pretrain", "continued_pretrain"] = "pretrain",
     ):
+        Path("logs").mkdir(exist_ok=True)
         self.arguments = arguments
         self.output_path = self.arguments.output_path
 
@@ -76,9 +77,6 @@ class PretrainingTrainer:
         )
         self.optimizer = self._init_optimizer()
         self.scheduler = self._init_scheduler()
-
-        self.best_eval_loss: float | None = None
-        self.best_eval_step: int | None = None
 
         # 指标
         self.console = Console() if self.is_main_process else None
@@ -239,7 +237,7 @@ class PretrainingTrainer:
 
         if not self.is_main_process:
             return
-        with open("logs/eval.json", mode="a") as f:
+        with open("logs/eval.jsonl", mode="a") as f:
             data = {
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "step": optimizer_steps,
@@ -270,15 +268,6 @@ class PretrainingTrainer:
             )
             save_file(state_dict, checkpoint_path)
 
-    def _save_best_checkpoint(self):
-        if not self.is_main_process:
-            return
-
-        checkpoint_path = Path(f"{self.output_path}/best/model.safetensors")
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        state_dict = self.model.module.state_dict() if self.is_distributed else self.model.state_dict()
-        save_file(state_dict, checkpoint_path)
-
     def _init_distributed(self):
         is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
         if is_distributed:
@@ -296,8 +285,8 @@ class PretrainingTrainer:
         return is_distributed, world_size, local_rank, device
 
     def _load_dataset(self, data_dir):
-        train_dataset = PackedTokenDataset(Path(f"{data_dir}/train"))
-        eval_dataset = PackedTokenDataset(Path(f"{data_dir}/eval"))
+        train_dataset = PackedTokenDataset(Path(f"{data_dir}/train"), seq_len=self.config.max_position_embeddings)
+        eval_dataset = PackedTokenDataset(Path(f"{data_dir}/eval"), seq_len=self.config.max_position_embeddings)
 
         return train_dataset, eval_dataset
 
@@ -337,7 +326,7 @@ class PretrainingTrainer:
         return train_dataloader, eval_dataloader
 
     def _get_tokenizer_and_model(self, model_path: str):
-        tokenizer = AutoTokenizer.from_pretrained(f"{model_path}/base")
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
 
         with open(f"{model_path}/config.json", mode="r", encoding="utf-8") as f:
             config = TransformerConfig.model_validate_json(f.read())

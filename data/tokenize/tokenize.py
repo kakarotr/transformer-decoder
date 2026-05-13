@@ -41,7 +41,11 @@ from rich.progress import (
 )
 from transformers import AutoTokenizer
 
+from models.config import TransformerConfig
+
 # ── 配置 ─────────────────────────────────────────────────────────────────────
+with open("artifacts/config.json", mode="r") as f:
+    config = TransformerConfig.model_validate_json(f.read())
 
 SOURCES: list[Path] = [
     Path("F:/transformer-decoder/pretraining/1.12B/clean/finewiki"),
@@ -50,7 +54,7 @@ SOURCES: list[Path] = [
 OUTPUT_DIR = Path("F:/transformer-decoder/pretraining/1.12B/tokenize")
 TOKENIZER_PATH = "artifacts"
 
-SEQ_LEN = 4096
+SEQ_LEN = config.max_position_embeddings
 SHARD_SIZE = 50_000  # 每个 shard 的序列数，uint16 下约 200MB
 TRAIN_RATIO = 0.99  # 99:1 split
 TEXT_COLUMN = "text"
