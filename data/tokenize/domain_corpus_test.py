@@ -79,7 +79,6 @@ def _process_shard(lines: list[str]) -> ShardResult:
 
         ids = _tokenizer.encode(text, add_special_tokens=False)
 
-
         total_chars += char_count
         total_tokens += len(ids)
         token_freq.update(ids)
@@ -105,20 +104,93 @@ def _process_shard(lines: list[str]) -> ShardResult:
 # ── 主评估流程 ─────────────────────────────────────────────────────────────────
 
 
-def _analyze_named_entities(tokenizer, terms: list[str]) -> list[dict]:
+def _analyze_named_entities(
+    tokenizer,
+    terms: list[str],
+    corpus_lines: list[str],
+) -> list[dict]:
+    # 为每个 term 收集至多 5 个真实出现的行
+    term_lines: dict[str, list[str]] = {t: [] for t in terms}
+    for line in corpus_lines:
+        for term in terms:
+            if term in line and len(term_lines[term]) < 5:
+                term_lines[term].append(line)
+
     results = []
     for term in terms:
-        ids = tokenizer.encode(term, add_special_tokens=False)
-        pieces = tokenizer.convert_ids_to_tokens(ids)  # 改这里
+        lines = term_lines[term]
+
+        if not lines:
+            results.append(
+                {
+                    "term": term,
+                    "n_tokens": None,
+                    "pieces": [],
+                    "fertility": None,
+                    "note": "未在语料中找到该词",
+                }
+            )
+            continue
+
+        # 统计所有出现位置的 token 数，取众数作为代表值
+        token_counts: Counter = Counter()
+        all_pieces: list[list[str]] = []
+
+        for line in lines:
+            start = 0
+            while True:
+                idx = line.find(term, start)
+                if idx == -1:
+                    break
+                char_end = idx + len(term)
+
+                enc = tokenizer(
+                    line,
+                    return_offsets_mapping=True,
+                    add_special_tokens=False,
+                )
+                offsets = enc["offset_mapping"]
+                ids = enc["input_ids"]
+
+                term_ids = [tid for tid, (s, e) in zip(ids, offsets) if s >= idx and e <= char_end]
+                if term_ids:
+                    pieces = tokenizer.convert_ids_to_tokens(term_ids)
+                    token_counts[len(term_ids)] += 1
+                    all_pieces.append(pieces)
+
+                start = idx + 1
+
+        if not token_counts:
+            results.append(
+                {
+                    "term": term,
+                    "n_tokens": None,
+                    "pieces": [],
+                    "fertility": None,
+                    "note": "offset mapping 对齐失败",
+                }
+            )
+            continue
+
+        representative_n = token_counts.most_common(1)[0][0]
+        representative_pieces = next(p for p in all_pieces if len(p) == representative_n)
+
         results.append(
             {
                 "term": term,
-                "n_tokens": len(ids),
-                "pieces": pieces,
-                "fertility": len(ids) / max(len(term), 1),
+                "n_tokens": representative_n,
+                "pieces": representative_pieces,
+                "fertility": representative_n / max(len(term), 1),
+                "occurrences": sum(token_counts.values()),
+                "token_count_dist": dict(token_counts),
             }
         )
-    return sorted(results, key=lambda x: x["n_tokens"], reverse=True)
+
+    return sorted(
+        [r for r in results if r["n_tokens"] is not None],
+        key=lambda x: x["n_tokens"],
+        reverse=True,
+    )
 
 
 def evaluate(
@@ -172,7 +244,8 @@ def evaluate(
     # token 平均字符长度
     mean_token_char_len = sum(length * count for length, count in aggregated.token_len_dist.items()) / total
 
-    ne_results = _analyze_named_entities(tokenizer, named_entities or [])
+    all_lines = [line for shard in shards for line in shard]
+    ne_results = _analyze_named_entities(tokenizer, named_entities or [], all_lines)
 
     return EvalResult(
         total_chars=aggregated.total_chars,

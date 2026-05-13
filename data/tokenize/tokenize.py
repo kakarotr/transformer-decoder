@@ -44,13 +44,13 @@ from transformers import AutoTokenizer
 # ── 配置 ─────────────────────────────────────────────────────────────────────
 
 SOURCES: list[Path] = [
-    Path("F:/transformer-decoder/pretraining/1B/clean/finewiki"),
-    Path("F:/transformer-decoder/pretraining/1B/clean/Ultra-FineWeb"),
+    Path("F:/transformer-decoder/pretraining/1.12B/clean/finewiki"),
+    Path("F:/transformer-decoder/pretraining/1.12B/clean/Ultra-FineWeb"),
 ]
-OUTPUT_DIR = Path("F:/transformer-decoder/pretraining/1B/tokenize")
+OUTPUT_DIR = Path("F:/transformer-decoder/pretraining/1.12B/tokenize")
 TOKENIZER_PATH = "artifacts"
 
-SEQ_LEN = 2048
+SEQ_LEN = 4096
 SHARD_SIZE = 50_000  # 每个 shard 的序列数，uint16 下约 200MB
 TRAIN_RATIO = 0.99  # 99:1 split
 TEXT_COLUMN = "text"
