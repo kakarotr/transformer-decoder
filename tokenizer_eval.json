@@ -1,0 +1,156 @@
+{
+  "total_chars": 24424196,
+  "total_tokens": 19780691,
+  "fertility": 0.8098809475652751,
+  "compression": 1.2347493826176243,
+  "vocab_size": 40960,
+  "vocab_coverage": 0.5535400390625,
+  "active_vocab": 22673,
+  "single_char_ratio": 0.7804748580320071,
+  "mean_token_char_len": 1.2326115402136355,
+  "token_len_distribution": {
+    "0": 90869,
+    "1": 15438332,
+    "2": 3851716,
+    "3": 362740,
+    "4": 34542,
+    "5": 1578,
+    "6": 714,
+    "7": 171,
+    "8": 8,
+    "10": 2,
+    "13": 1,
+    "16": 18
+  },
+  "ne_results": [
+    {
+      "term": "安土桃山时代",
+      "n_tokens": 5,
+      "pieces": [
+        "安",
+        "土",
+        "桃",
+        "山",
+        "时代"
+      ],
+      "fertility": 0.8333333333333334
+    },
+    {
+      "term": "本能寺之变",
+      "n_tokens": 4,
+      "pieces": [
+        "本能",
+        "寺",
+        "之",
+        "变"
+      ],
+      "fertility": 0.8
+    },
+    {
+      "term": "织田信长",
+      "n_tokens": 4,
+      "pieces": [
+        "织",
+        "田",
+        "信",
+        "长"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "丰臣秀吉",
+      "n_tokens": 4,
+      "pieces": [
+        "丰",
+        "臣",
+        "秀",
+        "吉"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "德川家康",
+      "n_tokens": 4,
+      "pieces": [
+        "德",
+        "川",
+        "家",
+        "康"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "室町幕府",
+      "n_tokens": 4,
+      "pieces": [
+        "室",
+        "町",
+        "幕",
+        "府"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "上杉谦信",
+      "n_tokens": 4,
+      "pieces": [
+        "上",
+        "杉",
+        "谦",
+        "信"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "武田信玄",
+      "n_tokens": 4,
+      "pieces": [
+        "武",
+        "田",
+        "信",
+        "玄"
+      ],
+      "fertility": 1.0
+    },
+    {
+      "term": "关原之战",
+      "n_tokens": 3,
+      "pieces": [
+        "关",
+        "原",
+        "之战"
+      ],
+      "fertility": 0.75
+    },
+    {
+      "term": "战国大名",
+      "n_tokens": 3,
+      "pieces": [
+        "战国",
+        "大",
+        "名"
+      ],
+      "fertility": 0.75
+    },
+    {
+      "term": "明智光秀",
+      "n_tokens": 3,
+      "pieces": [
+        "明智",
+        "光",
+        "秀"
+      ],
+      "fertility": 0.75
+    },
+    {
+      "term": "长篠之战",
+      "n_tokens": 3,
+      "pieces": [
+        "长",
+        "篠",
+        "之战"
+      ],
+      "fertility": 0.75
+    }
+  ]
+}

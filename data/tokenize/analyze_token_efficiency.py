@@ -20,7 +20,6 @@ from pathlib import Path
 
 from tokenizers import Tokenizer
 
-
 # ── 工具函数 ──────────────────────────────────────────────────────────────────
 
 
@@ -38,6 +37,46 @@ def is_chinese_char(ch: str) -> bool:
 
 def is_all_chinese(s: str) -> bool:
     return len(s) > 0 and all(is_chinese_char(ch) for ch in s)
+
+
+# 用于嵌入 term 的前后缀，确保 term 处于句子中间位置，避免词边界效应
+_PREFIX = "这是"
+_SUFFIX = "的内容"
+_PREFIX_IDS_LEN: int | None = None  # 延迟初始化
+
+
+def encode_in_context(tokenizer: Tokenizer, term: str) -> tuple[list[int], list[str]]:
+    """
+    将 term 嵌入中性句子后编码，提取 term 对应的 token 段。
+    避免孤立编码时 pretokenizer 词边界处理与实际训练时不一致的问题。
+    """
+    global _PREFIX_IDS_LEN
+    if _PREFIX_IDS_LEN is None:
+        _PREFIX_IDS_LEN = len(tokenizer.encode(_PREFIX + "X").ids) - len(tokenizer.encode("X").ids)
+
+    probe = _PREFIX + term + _SUFFIX
+    enc = tokenizer.encode(probe)
+
+    # 确定前缀占用的 token 数
+    prefix_enc = tokenizer.encode(_PREFIX)
+    prefix_len = len(prefix_enc.ids)
+
+    # 确定后缀占用的 token 数
+    suffix_enc = tokenizer.encode(_SUFFIX)
+    suffix_len = len(suffix_enc.ids)
+
+    # 从完整编码中裁出 term 的 token 段
+    # 注意：BPE 合并可能跨越边界，所以用去掉首尾的方式近似
+    total = len(enc.ids)
+    term_ids = enc.ids[prefix_len : total - suffix_len]
+    term_tokens = enc.tokens[prefix_len : total - suffix_len]
+
+    # 边界裁剪后长度为 0 属于异常情况（极短 term 被合并进前后缀），退回孤立编码
+    if len(term_ids) == 0:
+        fallback = tokenizer.encode(term)
+        return fallback.ids, fallback.tokens
+
+    return term_ids, term_tokens
 
 
 def strip_markdown(text: str) -> str:
@@ -127,9 +166,7 @@ def analyze(
 
     results = []
     for term, cnt in top_candidates:
-        encoding = tokenizer.encode(term)
-        token_ids = encoding.ids
-        tokens = encoding.tokens
+        token_ids, tokens = encode_in_context(tokenizer, term)
         n_tokens = len(token_ids)
         n_chars = len(term)
         ratio = n_tokens / n_chars

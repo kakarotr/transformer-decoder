@@ -10,9 +10,19 @@
 打包策略：
   文档之间插入 EOS token，贪婪拼接，不跨 shard 截断。
   每个 shard 内部独立 shuffle，shard 粒度做 train/eval split（99:1）。
+
+并行策略：
+  ProcessPoolExecutor（7 worker 进程）负责分词（CPU 密集）。
+  主进程负责 parquet 读取、结果收集、序列打包和 shard 写盘（I/O）。
+  滑动窗口限制 pending futures 数量，防止内存堆积。
 """
 
+import json
 import random
+from collections import deque
+from concurrent.futures import Future, ProcessPoolExecutor
+from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -34,11 +44,11 @@ from transformers import AutoTokenizer
 # ── 配置 ─────────────────────────────────────────────────────────────────────
 
 SOURCES: list[Path] = [
-    Path("F:/transformer-decoder/pretraining/clean/finewiki"),
-    Path("F:/transformer-decoder/pretraining/clean/Ultra-FineWeb"),
+    Path("F:/transformer-decoder/pretraining/1B/clean/finewiki"),
+    Path("F:/transformer-decoder/pretraining/1B/clean/Ultra-FineWeb"),
 ]
-OUTPUT_DIR = Path("F:/transformer-decoder/pretraining/tokenize")
-TOKENIZER_PATH = "artifacts/base"
+OUTPUT_DIR = Path("F:/transformer-decoder/pretraining/1B/tokenize")
+TOKENIZER_PATH = "artifacts"
 
 SEQ_LEN = 2048
 SHARD_SIZE = 50_000  # 每个 shard 的序列数，uint16 下约 200MB
@@ -47,16 +57,55 @@ TEXT_COLUMN = "text"
 ENCODE_BATCH_SIZE = 2000  # 每批送给 tokenizer 的文本数
 SEED = 42
 
+NUM_WORKERS = 7  # 8 核留 1 给主进程
+MAX_PENDING = NUM_WORKERS * 3  # 滑动窗口上限：控制 in-flight futures 数量
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Worker 进程状态（每个 worker 初始化一次，后续复用）
+# ─────────────────────────────────────────────────────────────────────────────
+
+_worker_tokenizer: AutoTokenizer | None = None
+_worker_eos_id: int = -1
+
+
+def _worker_init(tokenizer_path: str, eos_id: int) -> None:
+    """在每个 worker 进程启动时调用，加载 tokenizer 并缓存到全局变量。"""
+    global _worker_tokenizer, _worker_eos_id
+    _worker_tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    _worker_eos_id = eos_id
+
+
+def _tokenize_batch(texts: list[str]) -> list[int]:
+    """
+    对一批文本执行分词，返回拼接后的 flat token 列表。
+    每篇文档末尾追加 EOS，文档间直接拼接。
+    返回 flat list 而非 list[list[int]]，减少主进程端解包开销。
+    """
+    assert _worker_tokenizer is not None, "Worker not initialized"
+    encoded: list[list[int]] = _worker_tokenizer(
+        texts,
+        add_special_tokens=False,
+        truncation=False,
+    )["input_ids"]
+
+    flat: list[int] = []
+    for ids in encoded:
+        if ids:
+            flat.extend(ids)
+            flat.append(_worker_eos_id)
+    return flat
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 主进程工具函数（与原版保持一致）
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def collect_parquet_files(sources: list[Path], rng: random.Random) -> list[Path]:
     """
     分别收集各 source 的文件，按比例均匀交织后返回。
-
     各 source 在 [0, 1) 区间内均匀分配位置（加小幅随机抖动），
-    再按位置合并排序。无论两边文件数量差距多大，都能保证全程均匀混合，
-    避免长时间连续喂同一个 source 的内容。
+    再按位置合并排序，保证全程均匀混合。
     """
     tagged: list[tuple[float, Path]] = []
     for source in sources:
@@ -66,7 +115,6 @@ def collect_parquet_files(sources: list[Path], rng: random.Random) -> list[Path]
         n = len(files)
         rng.shuffle(files)
         for i, f in enumerate(files):
-            # 均匀分布 + 半格以内的抖动，保证 source 间交织但不打破各自的内部顺序
             position = (i + rng.random() * 0.5) / n
             tagged.append((position, f))
 
@@ -90,7 +138,6 @@ class ShardWriter:
         self.total_sequences = 0
 
     def add(self, seq: np.ndarray) -> None:
-        """添加一条长度为 seq_len 的 uint16 序列。"""
         self._buf[self._pos] = seq
         self._pos += 1
         if self._pos == self.shard_size:
@@ -110,13 +157,11 @@ class ShardWriter:
         self._pos = 0
 
     def finalize(self) -> None:
-        """刷出剩余不足一个 shard 的序列。"""
         if self._pos > 0:
             self._flush(size=self._pos)
 
 
 def count_sequences(shards: list[Path], seq_len: int) -> int:
-    """从文件大小推算序列总数（uint16，每个序列占 seq_len * 2 字节）。"""
     return sum(f.stat().st_size // (seq_len * 2) for f in shards)
 
 
@@ -128,11 +173,6 @@ def split_and_move(
     seq_len: int,
     rng: random.Random,
 ) -> tuple[int, int, int, int]:
-    """随机分配 shard 到 train/eval 目录。
-
-    Returns:
-        (n_train_shards, n_eval_shards, n_train_seqs, n_eval_seqs)
-    """
     shards = list(shards)
     rng.shuffle(shards)
 
@@ -140,7 +180,6 @@ def split_and_move(
     eval_shards = shards[:n_eval]
     train_shards = shards[n_eval:]
 
-    # 在 rename 之前统计序列数（rename 后路径变了）
     n_train_seqs = count_sequences(train_shards, seq_len)
     n_eval_seqs = count_sequences(eval_shards, seq_len)
 
@@ -155,6 +194,42 @@ def split_and_move(
     return len(train_shards), len(eval_shards), n_train_seqs, n_eval_seqs
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 核心：收集 future 结果并打包进 writer
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _drain_future(future: Future, token_buf: list[int], writer: ShardWriter) -> None:
+    """取出一个 future 的结果，追加到 token_buf，满 SEQ_LEN 时打包写盘。"""
+    tokens: list[int] = future.result()
+    token_buf.extend(tokens)
+    while len(token_buf) >= SEQ_LEN:
+        seq = np.array(token_buf[:SEQ_LEN], dtype=np.uint16)
+        writer.add(seq)
+        del token_buf[:SEQ_LEN]
+
+
+def _submit_batch(
+    pool: ProcessPoolExecutor,
+    pending: deque[Future],
+    token_buf: list[int],
+    writer: ShardWriter,
+    batch: list[str],
+) -> None:
+    """提交一个分词任务；若 pending 队列满则先 drain 最老的 future。"""
+    # 背压：队列满时阻塞直到最老的任务完成
+    if len(pending) >= MAX_PENDING:
+        _drain_future(pending.popleft(), token_buf, writer)
+
+    future = pool.submit(_tokenize_batch, batch)
+    pending.append(future)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 主函数
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def main() -> None:
     random.seed(SEED)
     np.random.seed(SEED)
@@ -164,12 +239,18 @@ def main() -> None:
     console.print(f"[bold]Tokenizer:[/bold] {TOKENIZER_PATH}")
     console.print(f"[bold]Output:[/bold] {OUTPUT_DIR}")
     console.print(
-        f"[bold]SEQ_LEN:[/bold] {SEQ_LEN}  [bold]SHARD_SIZE:[/bold] {SHARD_SIZE:,}  [bold]Split:[/bold] {TRAIN_RATIO:.0%}/{1 - TRAIN_RATIO:.0%}"
+        f"[bold]SEQ_LEN:[/bold] {SEQ_LEN}  "
+        f"[bold]SHARD_SIZE:[/bold] {SHARD_SIZE:,}  "
+        f"[bold]Split:[/bold] {TRAIN_RATIO:.0%}/{1 - TRAIN_RATIO:.0%}  "
+        f"[bold]Workers:[/bold] {NUM_WORKERS}"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
-    eos_id: int = tokenizer.eos_token_id
-    vocab_size: int = tokenizer.vocab_size
+    # 提前加载一次 tokenizer 拿 eos_id / vocab_size，不在主进程中保留
+    _tmp = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
+    eos_id: int = _tmp.eos_token_id
+    vocab_size: int = _tmp.vocab_size
+    del _tmp
+
     if vocab_size > 65535:
         raise ValueError(f"vocab_size={vocab_size} exceeds uint16 range (65535). Use uint32 instead.")
 
@@ -178,9 +259,8 @@ def main() -> None:
 
     tmp_dir = OUTPUT_DIR / "tmp"
     writer = ShardWriter(tmp_dir, SEQ_LEN, SHARD_SIZE)
-
-    # 运行中的 token buffer（长度始终 < SEQ_LEN）
     token_buf: list[int] = []
+    pending: deque[Future] = deque()
 
     progress = Progress(
         SpinnerColumn(),
@@ -195,7 +275,14 @@ def main() -> None:
     )
     task = progress.add_task("tokenize", total=len(files), fname="starting...")
 
-    with Live(progress, console=console, refresh_per_second=4):
+    with (
+        ProcessPoolExecutor(
+            max_workers=NUM_WORKERS,
+            initializer=_worker_init,
+            initargs=(TOKENIZER_PATH, eos_id),
+        ) as pool,
+        Live(progress, console=console, refresh_per_second=4),
+    ):
         for file_path in files:
             progress.update(task, fname=file_path.name)
 
@@ -207,34 +294,21 @@ def main() -> None:
                 continue
 
             texts: list[str] = table[TEXT_COLUMN].to_pylist()
+            del table  # 尽早释放 Arrow 内存
 
             for batch_start in range(0, len(texts), ENCODE_BATCH_SIZE):
                 batch = [t for t in texts[batch_start : batch_start + ENCODE_BATCH_SIZE] if t and not t.isspace()]
                 if not batch:
                     continue
-
-                encoded: list[list[int]] = tokenizer(
-                    batch,
-                    add_special_tokens=False,
-                    truncation=False,
-                )["input_ids"]
-
-                for ids in encoded:
-                    if not ids:
-                        continue
-                    # 文档末尾追加 EOS
-                    token_buf.extend(ids)
-                    token_buf.append(eos_id)
-
-                    # 贪婪打包：每凑满 SEQ_LEN 就生成一条序列
-                    while len(token_buf) >= SEQ_LEN:
-                        seq = np.array(token_buf[:SEQ_LEN], dtype=np.uint16)
-                        writer.add(seq)
-                        del token_buf[:SEQ_LEN]
+                _submit_batch(pool, pending, token_buf, writer, batch)
 
             progress.advance(task)
 
-    # 刷出尾部不足一整条的 token（丢弃，不做 padding）
+        # 等待所有 pending futures 完成
+        while pending:
+            _drain_future(pending.popleft(), token_buf, writer)
+
+    # 尾部不足一整条的 token 丢弃（不 padding）
     if token_buf:
         console.print(f"Discarding {len(token_buf)} trailing tokens (< SEQ_LEN)")
     writer.finalize()
@@ -261,12 +335,9 @@ def main() -> None:
     try:
         tmp_dir.rmdir()
     except OSError:
-        pass  # 非空则跳过，不影响结果
+        pass
 
     # 写 metadata JSON
-    import json
-    from datetime import datetime
-
     metadata = {
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "tokenizer": TOKENIZER_PATH,
