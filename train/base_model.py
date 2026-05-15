@@ -1,6 +1,6 @@
 import math
 from collections import deque
-from typing import Annotated, Deque
+from typing import Deque
 
 from pydantic import BaseModel, Field, model_validator
 
