@@ -1,7 +1,6 @@
 import json
 import math
 import os
-import platform
 import time
 from collections import deque
 from contextlib import nullcontext
@@ -65,16 +64,21 @@ class PretrainingTrainer:
         self.is_main_process = (not self.is_distributed) or dist.get_rank() == 0
         if self.is_main_process:
             print(self.arguments.model_dump_json(indent=2))
+
+        self.config, self.tokenizer, self.model = self._get_tokenizer_and_model(self.arguments.model_path)
+
         self.train_dataset, self.eval_dataset = self._load_dataset(self.arguments.data_path)
         self.train_dataloader, self.eval_dataloader = self._load_dataloader()
-        self.config, self.tokenizer, self.model = self._get_tokenizer_and_model(self.arguments.model_path)
+
         self.compute_loss, self.eval_compute_loss = self._get_loss_fn()
+
         self.token_per_update = (
             self.arguments.per_device_train_batch_size
             * self.world_size
             * self.config.max_position_embeddings
             * self.arguments.gradient_accumulation_steps
         )
+
         self.optimizer = self._init_optimizer()
         self.scheduler = self._init_scheduler()
 
@@ -405,7 +409,7 @@ class PretrainingTrainer:
             input_ids = batch.to(device=self.device, non_blocking=True)
             labels = input_ids
 
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.autocast("cuda", dtype=torch.bfloat16):
                 hidden_states = self.model(input_ids)
                 lm_head_weight = (
                     self.model.lm_head.weight if not self.is_distributed else self.model.module.lm_head.weight
