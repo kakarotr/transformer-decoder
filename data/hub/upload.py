@@ -6,7 +6,7 @@ from modelscope.hub.api import HubApi
 
 def sync_upload_to_modelscope(namespace: str, dataset: str, repo_dir: str, local_dir: str):
     api = HubApi()
-    api.login("ms-b4f6fcf3-3f96-4fd1-946b-8700911a3d1d")
+    api.login("")
     repo_id = f"{namespace}/{dataset}"
 
     # ── 1. 获取远端已有文件（递归） ───────────────────────────────────────
@@ -18,6 +18,7 @@ def sync_upload_to_modelscope(namespace: str, dataset: str, repo_dir: str, local
             revision="master",
             root_path=repo_dir,
             recursive=True,  # ← 改为 True
+            page_size=999,
         )
         files = resp.get("Data", {}).get("Files", [])
         # 用相对于 repo_dir 的路径做去重 key
@@ -74,6 +75,6 @@ if __name__ == "__main__":
     sync_upload_to_modelscope(
         namespace="kakarotter",
         dataset="Calix-Dataset",
-        repo_dir="pretraining/tokenize/1.12B/train",
-        local_dir="F:/transformer-decoder/pretraining/1.12B/tokenize/train",
+        repo_dir="pretraining/tokenize/1.12B",
+        local_dir="F:/transformer-decoder/pretraining/1.12B/tokenize",
     )

@@ -31,7 +31,7 @@ def process_file(parquet_file: Path) -> tuple[str, int, int]:
 
     records = []
     for text, score in zip(df["content"], df["score"]):
-        if float(score) >= 0.85:
+        if float(score) >= 0.7:
             result = cleaner.clean(text)
             if result.passed:
                 records.append({"text": result.text, "score": score})
