@@ -13,3 +13,4 @@ artifacts/model.safetensors
 artifacts/checkpoints-*
 
 .env
+.claude
