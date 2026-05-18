@@ -3,7 +3,7 @@ from safetensors.torch import load_file
 from transformers import AutoTokenizer
 
 from models.config import TransformerConfig
-from models.liger.causal_lm import CausalLanguageModel
+from models.torch.causal_lm import CausalLanguageModel
 
 
 @torch.no_grad()
@@ -73,7 +73,7 @@ def inspect_next_token(model, tokenizer, prompt, device="cuda"):
 
 
 if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("artifacts/base")
+    tokenizer = AutoTokenizer.from_pretrained("artifacts")
     with open("artifacts/config.json", mode="r", encoding="utf-8") as f:
         config = TransformerConfig.model_validate_json(f.read())
     model = CausalLanguageModel(config).to("cuda")

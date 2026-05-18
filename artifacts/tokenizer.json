@@ -113,7 +113,10 @@
     ],
     "special_tokens": {}
   },
-  "decoder": null,
+  "decoder": {
+    "type": "BPEDecoder",
+    "suffix": "▁"
+  },
   "model": {
     "type": "BPE",
     "dropout": null,

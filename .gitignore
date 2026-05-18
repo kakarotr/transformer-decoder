@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
+artifacts/**/model.safetensors
 artifacts/model.safetensors
 artifacts/checkpoints-*
 
