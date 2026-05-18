@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 from pdf2image import convert_from_path
@@ -53,4 +54,9 @@ OUTPUT_PATH = "/Users/linyongjin/Sengoku/Image"
 
 
 if __name__ == "__main__":
-    pdf_to_images(pdf_path=f"{pdf_path}/战国日本2：败者的美学.pdf", output_path=OUTPUT_PATH, dpi=300)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--name", type=str, required=True)
+
+    args = parser.parse_args()
+
+    pdf_to_images(pdf_path=f"{pdf_path}/{args.name}.pdf", output_path=OUTPUT_PATH, dpi=300)

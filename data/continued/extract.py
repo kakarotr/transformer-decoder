@@ -1,3 +1,4 @@
+import argparse
 import base64
 import json
 import os
@@ -37,6 +38,8 @@ def extract(image_path: str, output_path: str, start: int = 0):
         output_dir.mkdir(parents=True)
 
     images = sorted(image_dir.glob("*.png"), key=lambda x: int(x.stem))
+    images_to_process = [img for img in images if int(img.stem) >= start]
+
     prompt = "\n\n".join(
         [
             base_section,
@@ -46,7 +49,7 @@ def extract(image_path: str, output_path: str, start: int = 0):
 
     console.print(f"[bold cyan]📂 来源:[/] {image_dir}")
     console.print(f"[bold cyan]💾 输出:[/] {output_dir}")
-    console.print(f"[bold cyan]🖼  共计:[/] {len(images)} 张\n")
+    console.print(f"[bold cyan]🖼  共计:[/] {len(images_to_process)} 张\n")
 
     last_paragraph = ""
 
@@ -60,12 +63,10 @@ def extract(image_path: str, output_path: str, start: int = 0):
         TimeRemainingColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("", total=len(images), filename="")
+        task = progress.add_task("", total=len(images_to_process), filename="")
 
-        for image in images:
+        for image in images_to_process:
             name = image.stem
-            if int(name) < start:
-                continue
             progress.update(task, filename=f"{name}.png")
 
             result = invoke(image, prompt, last_paragraph)
@@ -81,7 +82,7 @@ def extract(image_path: str, output_path: str, start: int = 0):
 
             progress.advance(task)
 
-    console.print(f"\n[bold green]✅ 完成！[/] 已提取 {len(images)} 张，结果保存至 {output_dir}")
+    console.print(f"\n[bold green]✅ 完成！[/] 已提取 {len(images_to_process)} 张，结果保存至 {output_dir}")
 
 
 def invoke(image: Path, prompt: str, last_paragraph: str):
@@ -102,7 +103,16 @@ def invoke(image: Path, prompt: str, last_paragraph: str):
             {"role": "user", "content": user_input},
         ],
         temperature=0.1,
-        response_format={"type": "json_object"},
+        response_format={
+            "type": "json_object"
+            # "type": "json_schema",
+            # "json_schema": {
+            #     "name": "BookPage",
+            #     "description": "书页的结构",
+            #     "schema": BookPage.model_json_schema(),
+            #     "strict": True,
+            # },
+        },
     )
 
     result = response.choices[0].message.content
@@ -141,8 +151,14 @@ def is_continuation(last_paragraph: str | None, first_paragraph_has_indent: bool
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--name", type=str, required=True)
+    parser.add_argument("--start", type=int, required=True, default=0)
+
+    args = parser.parse_args()
+
     extract(
-        image_path="/Users/linyongjin/Sengoku/Image/战国日本2：败者的美学",
+        image_path=f"/Users/linyongjin/Sengoku/Image/{args.name}",
         output_path="/Users/linyongjin/Sengoku/Json",
-        start=231,
+        start=args.start,
     )
