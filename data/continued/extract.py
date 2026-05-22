@@ -74,8 +74,11 @@ def extract(image_path: str, output_path: str, start: int = 0):
             if result.paragraphs and result.paragraphs[0].type != "title":
                 result.first_paragraph_has_indent = is_continuation(last_paragraph, result.first_paragraph_has_indent)
 
-            if result.paragraphs and result.paragraphs[-1].type != "title":
-                last_paragraph = result.paragraphs[-1].content
+            paragraph_blocks = [p for p in result.paragraphs if p.type == "paragraph"]
+            if paragraph_blocks:
+                last_paragraph = paragraph_blocks[-1].content
+            elif any(p.type == "title" for p in result.paragraphs):
+                last_paragraph = "。"
 
             with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
                 f.write(result.model_dump_json(indent=2))
@@ -103,16 +106,17 @@ def invoke(image: Path, prompt: str, last_paragraph: str):
             {"role": "user", "content": user_input},
         ],
         temperature=0.1,
-        response_format={
-            "type": "json_object"
-            # "type": "json_schema",
-            # "json_schema": {
-            #     "name": "BookPage",
-            #     "description": "书页的结构",
-            #     "schema": BookPage.model_json_schema(),
-            #     "strict": True,
-            # },
-        },
+        extra_body={"thinking": {"type": "disabled"}},
+        # response_format={
+        # "type": "json_object"
+        # "type": "json_schema",
+        # "json_schema": {
+        #     "name": "BookPage",
+        #     "description": "书页的结构",
+        #     "schema": BookPage.model_json_schema(),
+        #     "strict": True,
+        # },
+        # },
     )
 
     result = response.choices[0].message.content
@@ -147,13 +151,13 @@ def is_continuation(last_paragraph: str | None, first_paragraph_has_indent: bool
     if last_char not in {"。", "？", "！", "…"}:
         return False
 
-    return first_paragraph_has_indent
+    return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, required=True)
-    parser.add_argument("--start", type=int, required=True, default=0)
+    parser.add_argument("--start", type=int, required=False, default=0)
 
     args = parser.parse_args()
 

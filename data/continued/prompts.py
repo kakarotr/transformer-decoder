@@ -37,10 +37,10 @@ base_section = """
 - 是**标题**：`first_paragraph_has_indent = true`，检测结束
 - 是**段落**：继续第二步
 
-**第二步：** 观察该段落第一行的起始位置，与页面中其他段落的第一行进行对比：
-- 起始位置一致，处于同一纵列：`first_paragraph_has_indent = true`，检测结束
-- 起始位置明显偏左，与其他段落的续行对齐而非首行：`first_paragraph_has_indent = false`，检测结束
-- 页面只有一个段落无法对比，或视觉上无法确认：继续第三步
+**第二步：** 观察该段落第一行与其**自身续行**的起始位置关系：
+- 如果该段落只有一行，则与页面中其他多行段落的首行对比
+- 第一行起始位置明显偏右（相对于续行或其他段落续行）：`first_paragraph_has_indent = true`，检测结束
+- 第一行与续行左边缘对齐，无缩进：`first_paragraph_has_indent = false`，检测结束
 
 **第三步（仅在第二步无法确认时执行）：** 查看是否提供了【上一页末尾段落】：
 - 未提供：`first_paragraph_has_indent = true`，检测结束
