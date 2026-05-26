@@ -17,7 +17,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from data.continued.prompts import base_section, json_schema_section
+from data.continued.prompts import horizontal_section, json_schema_section
 from data.continued.structure import BookPage
 
 load_dotenv()
@@ -30,7 +30,7 @@ client = OpenAI(base_url=base_url, api_key=api_key)
 console = Console()
 
 
-def extract(image_path: str, output_path: str, start: int = 0):
+def extract(image_path: str, output_path: str, start: int = 0, base_sections: list[str] = [horizontal_section]):
     image_dir = Path(image_path)
     output_dir = Path(output_path) / image_dir.name
 
@@ -42,7 +42,7 @@ def extract(image_path: str, output_path: str, start: int = 0):
 
     prompt = "\n\n".join(
         [
-            base_section,
+            *base_sections,
             json_schema_section.format(json_schema=json.dumps(BookPage.model_json_schema(), ensure_ascii=False)),
         ]
     )
@@ -165,4 +165,5 @@ if __name__ == "__main__":
         image_path=f"/Users/linyongjin/Sengoku/Image/{args.name}",
         output_path="/Users/linyongjin/Sengoku/Json",
         start=args.start,
+        base_sections=[horizontal_section]
     )

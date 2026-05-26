@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from opencc import OpenCC
+
 OUTPUT_PATH = "/Users/linyongjin/Sengoku/Markdown"
 INPUT_BASE_PATH = "/Users/linyongjin/Sengoku/Json"
 
@@ -12,6 +14,9 @@ INPUT_BASE_PATH = "/Users/linyongjin/Sengoku/Json"
 class HeadingPattern:
     pattern: str
     level: int
+
+
+opencc = OpenCC("tw2sp")
 
 
 def get_heading_level(content: str, patterns: list[HeadingPattern]) -> tuple[int, str]:
@@ -35,13 +40,16 @@ def normalize_quotes(text: str) -> str:
             depth = max(depth - 1, 0)
         else:
             result.append(ch)
-    return "".join(result)
+    content = "".join(result)
+    content = content.replace("「", "“").replace("」", "”")
+    return content
 
 
 def merge_to_markdown(
     json_dir: str | Path,
     book_name: str,
     heading_patterns: list[HeadingPattern],
+    need_convert_sp: bool = False,
 ) -> None:
     json_dir = Path(json_dir)
     json_files = sorted(json_dir.glob("*.json"), key=lambda x: int(x.stem))
@@ -63,6 +71,8 @@ def merge_to_markdown(
         for i, block in enumerate(paragraphs):
             block_type: str = block["type"]
             content: str = normalize_quotes(block["content"])
+            if need_convert_sp:
+                content = opencc.convert(content)
 
             if block_type == "title":
                 level, title_text = get_heading_level(content, heading_patterns)
@@ -112,7 +122,7 @@ if __name__ == "__main__":
         json_dir=input_path,
         heading_patterns=[
             HeadingPattern(
-                pattern=r"第(?:[一二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])章\s+",
+                pattern=r"^(?=\S+ \S+$)",
                 level=2,
             ),
             HeadingPattern(
@@ -120,6 +130,7 @@ if __name__ == "__main__":
                 level=3,
             ),
         ],
+        need_convert_sp=True,
     )
 
 
@@ -131,3 +142,6 @@ if __name__ == "__main__":
 
 # 第一章 标题
 # r"第(?:[一二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])章\s+"
+
+# 前半段 后半段
+# r"^(?=\S+ \S+$)"
