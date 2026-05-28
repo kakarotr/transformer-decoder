@@ -122,15 +122,15 @@ if __name__ == "__main__":
         json_dir=input_path,
         heading_patterns=[
             HeadingPattern(
-                pattern=r"^(?=\S+ \S+$)",
+                pattern=r"^第(?:[二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])回\s*",
                 level=2,
             ),
-            HeadingPattern(
-                pattern=r"",
-                level=3,
-            ),
+            # HeadingPattern(
+            #     pattern=r"",
+            #     level=3,
+            # ),
         ],
-        need_convert_sp=True,
+        need_convert_sp=False,
     )
 
 
@@ -145,3 +145,6 @@ if __name__ == "__main__":
 
 # 前半段 后半段
 # r"^(?=\S+ \S+$)"
+
+# 第一回 XXXXXXXX XXXXXXXX
+# r"^第(?:[二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])回\s*"
