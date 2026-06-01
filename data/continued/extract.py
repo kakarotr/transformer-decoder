@@ -17,7 +17,11 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from data.continued.prompts import horizontal_section, json_schema_section
+from data.continued.prompts import (
+    horizontal_section,
+    json_schema_section,
+    vertical_section,
+)
 from data.continued.structure import BookPage
 
 load_dotenv()
@@ -158,12 +162,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--start", type=int, required=False, default=0)
+    parser.add_argument("--is_jp", type=bool, required=False, default=False)
 
     args = parser.parse_args()
 
     extract(
         image_path=f"/Users/linyongjin/Sengoku/Image/{args.name}",
-        output_path="/Users/linyongjin/Sengoku/Json",
+        output_path="/Users/linyongjin/Sengoku/Json" if not args.is_sp else "/Users/linyongjin/Sengoku/Json/JP",
         start=args.start,
-        base_sections=[horizontal_section]
+        base_sections=[vertical_section],
     )

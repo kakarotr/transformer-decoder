@@ -112,6 +112,7 @@ def merge_to_markdown(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, required=True)
+    parser.add_argument("--need_convert_sp", default=False, type=bool, required=False)
 
     args = parser.parse_args()
 
@@ -122,15 +123,19 @@ if __name__ == "__main__":
         json_dir=input_path,
         heading_patterns=[
             HeadingPattern(
-                pattern=r"^第(?:[二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])回\s*",
+                pattern=r"第(?:[一二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])章\s+",
                 level=2,
             ),
-            # HeadingPattern(
-            #     pattern=r"",
-            #     level=3,
-            # ),
+            HeadingPattern(
+                pattern=r"^第(?:[二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])回\s*",
+                level=3,
+            ),
+            HeadingPattern(
+                pattern=r"",
+                level=4,
+            ),
         ],
-        need_convert_sp=False,
+        need_convert_sp=args.need_convert_sp,
     )
 
 
