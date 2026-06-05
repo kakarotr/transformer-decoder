@@ -168,7 +168,7 @@ if __name__ == "__main__":
 
     extract(
         image_path=f"/Users/linyongjin/Sengoku/Image/{args.name}",
-        output_path="/Users/linyongjin/Sengoku/Json" if not args.is_sp else "/Users/linyongjin/Sengoku/Json/JP",
+        output_path="/Users/linyongjin/Sengoku/Json" if not args.is_jp else "/Users/linyongjin/Sengoku/Json/JP",
         start=args.start,
         base_sections=[vertical_section],
     )

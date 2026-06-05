@@ -1,9 +1,11 @@
 import argparse
+import json
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from pydantic import ValidationError
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -16,6 +18,7 @@ from rich.progress import (
 )
 
 from data.continued.prompts import json_schema_section, translate_prompt
+from data.continued.structure import BookPage, TextOutput
 
 load_dotenv()
 
@@ -54,35 +57,50 @@ def translate(json_path: str, output_path: str, start: int = 0):
         task = progress.add_task("", total=len(jsons_to_process), filename="")
 
         for item in jsons_to_process:
-            if item.stem == "18":
-                name = item.stem
-                progress.update(task, filename=f"{name}.png")
+            name = item.stem
+            progress.update(task, filename=f"{name}.png")
 
-                invoke(item)
-                break
+            result = invoke(item)
+
+            with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
+                f.write(result.model_dump_json(indent=2))
+
+            progress.advance(task)
 
 
-def invoke(json: Path):
-    prompt = "\n\n".join([translate_prompt, json_schema_section])
-    with open(json, mode="r", encoding="utf-8") as f:
-        content = f.read()
+def invoke(json_path: Path):
+    with open(json_path, mode="r", encoding="utf-8") as f:
+        content = BookPage.model_validate_json(f.read())
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": content},
-        ],
-        temperature=0.2,
-        top_p=0.9,
-        extra_body={"thinking": {"type": "disabled"}},
-    )
+    for item in content.paragraphs:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": translate_prompt.format(
+                        json_schema=json.dumps(TextOutput.model_json_schema(), ensure_ascii=False)
+                    ),
+                },
+                {"role": "user", "content": item.content},
+            ],
+            temperature=0.2,
+            top_p=0.9,
+            extra_body={"thinking": {"type": "disabled"}},
+        )
 
-    result = response.choices[0].message.content
-    if result is None:
-        raise ValueError("提取结果为空")
+        result = response.choices[0].message.content
+        if result is None:
+            raise ValueError("提取结果为空")
+        try:
+            text = TextOutput.model_validate_json(result).text
+        except ValidationError:
+            text = result
+            console.print(f"{json_path.stem} {result[:30]}")
 
-    print(result)
+        item.content = text
+
+    return content
 
 
 if __name__ == "__main__":

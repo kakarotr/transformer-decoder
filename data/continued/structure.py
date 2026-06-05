@@ -13,3 +13,7 @@ class BookParagraph(BaseModel):
 class BookPage(BaseModel):
     first_paragraph_has_indent: bool = Field(description="首个段落是否有首行缩进")
     paragraphs: list[BookParagraph] = Field(description="段落列表")
+
+
+class TextOutput(BaseModel):
+    text: str = Field(description="输出的内容")
