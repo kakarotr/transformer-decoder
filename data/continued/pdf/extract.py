@@ -167,8 +167,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract(
-        image_path=f"/Users/linyongjin/Sengoku/Image/{args.name}",
-        output_path="/Users/linyongjin/Sengoku/Json" if not args.is_jp else "/Users/linyongjin/Sengoku/Json/JP",
+        image_path=f"/Users/kakarot/Data/CPT/Sengoku/Image/{args.name}",
+        output_path="/Users/kakarot/Data/CPT/Sengoku/Json"
+        if not args.is_jp
+        else "/Users/kakarot/Data/CPT/Sengoku/Json/JP",
         start=args.start,
         base_sections=[vertical_section],
     )

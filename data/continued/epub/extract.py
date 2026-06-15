@@ -125,7 +125,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract(
-        html_path=f"/Users/linyongjin/Sengoku/EPUB/{args.name}",
-        output_path="/Users/linyongjin/Sengoku/Json" if not args.is_jp else "/Users/linyongjin/Sengoku/Json/JP",
+        html_path=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}",
+        output_path="/Users/kakarot/Data/CPT/Sengoku/Json"
+        if not args.is_jp
+        else "/Users/kakarot/Data/CPT/Sengoku/Json/JP",
         start=args.start,
     )

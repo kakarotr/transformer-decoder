@@ -4,7 +4,13 @@ from pathlib import Path
 from pdf2image import convert_from_path
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 console = Console()
 
@@ -49,8 +55,8 @@ def pdf_to_images(pdf_path: str, output_path: str, dpi: int = 200) -> list[str]:
     return saved_paths
 
 
-pdf_path = "/Users/linyongjin/Sengoku/PDF"
-OUTPUT_PATH = "/Users/linyongjin/Sengoku/Image"
+pdf_path = "/Users/kakarot/Data/CPT/Sengoku/PDF"
+OUTPUT_PATH = "/Users/kakarot/Data/CPT/Sengoku/Image"
 
 
 if __name__ == "__main__":

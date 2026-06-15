@@ -119,6 +119,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract_epub(
-        epub_path=f"/Users/linyongjin/Sengoku/EPUB/{args.name}.epub",
-        output_dir=f"/Users/linyongjin/Sengoku/EPUB/{args.name}",
+        epub_path=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}.epub",
+        output_dir=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}",
     )

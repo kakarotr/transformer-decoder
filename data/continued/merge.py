@@ -6,8 +6,8 @@ from pathlib import Path
 
 from opencc import OpenCC
 
-OUTPUT_PATH = "/Users/linyongjin/Sengoku/Markdown"
-INPUT_BASE_PATH = "/Users/linyongjin/Sengoku/Json"
+OUTPUT_PATH = "/Users/kakarot/Data/CPT/Sengoku/Markdown"
+INPUT_BASE_PATH = "/Users/kakarot/Data/CPT/Sengoku/Json"
 
 
 @dataclass

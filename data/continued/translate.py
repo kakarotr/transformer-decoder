@@ -111,7 +111,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     translate(
-        json_path=f"/Users/linyongjin/Sengoku/Json/JP/{args.name}",
-        output_path="/Users/linyongjin/Sengoku/Json",
+        json_path=f"/Users/kakarot/Data/CPT/Sengoku/Json/JP/{args.name}",
+        output_path="/Users/kakarot/Data/CPT/Sengoku/Json",
         start=args.start,
     )
