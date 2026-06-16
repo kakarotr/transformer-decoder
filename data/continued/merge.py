@@ -127,7 +127,7 @@ if __name__ == "__main__":
                 level=2,
             ),
             HeadingPattern(
-                pattern=r"^第(?:[二三四五六七八九]十[一二三四五六七八九]?|十[一二三四五六七八九]?|[一二三四五六七八九])回\s*",
+                pattern=r"^\d+\s+",
                 level=3,
             ),
             HeadingPattern(

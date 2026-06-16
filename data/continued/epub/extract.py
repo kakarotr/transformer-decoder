@@ -98,7 +98,7 @@ def invoke(prompt: str, html: str, css: str | None):
             {"role": "user", "content": user_input},
         ],
         extra_body={"thinking": {"type": "disabled"}},
-        max_tokens=16 * 1024,
+        max_tokens=64 * 1024,
         response_format={"type": "json_object"},
     )
 

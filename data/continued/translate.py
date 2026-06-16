@@ -87,6 +87,7 @@ def invoke(json_path: Path):
             temperature=0.2,
             top_p=0.9,
             extra_body={"thinking": {"type": "disabled"}},
+            max_tokens=16 * 1024,
         )
 
         result = response.choices[0].message.content
