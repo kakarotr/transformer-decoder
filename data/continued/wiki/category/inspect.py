@@ -1,10 +1,14 @@
+import json
 import time
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+
+TMP_DIR = Path(__file__).parent / "tmp"
 
 
 @dataclass
@@ -33,13 +37,12 @@ ROOT_CATEGORIES = {
 
 
 def build_session(total_retries: int = 5, backoff_factor: float = 1.5) -> requests.Session:
-    """带重试和指数退避的 Session，专门应对 SSL/读取错误。"""
     session = requests.Session()
     retry = Retry(
         total=total_retries,
         connect=total_retries,
-        read=total_retries,  # 覆盖 SSLEOFError / UNEXPECTED_EOF
-        backoff_factor=backoff_factor,  # 等待时间：1.5s、3s、6s、12s、24s
+        read=total_retries,
+        backoff_factor=backoff_factor,
         status_forcelist=[429, 500, 502, 503, 504],
         raise_on_status=False,
     )
@@ -48,7 +51,8 @@ def build_session(total_retries: int = 5, backoff_factor: float = 1.5) -> reques
     return session
 
 
-def inspect_category_tree(category: Category, delay: float = 1.5):
+def inspect_category_tree(category: Category, delay: float = 1.5) -> list[str]:
+    """遍历分类树，返回所有发现的分类名称列表。"""
     session = build_session()
     visited: set[str] = set()
     queue: deque[tuple[Category, int]] = deque([(category, 0)])
@@ -58,7 +62,7 @@ def inspect_category_tree(category: Category, delay: float = 1.5):
         if cat.name in visited:
             continue
         visited.add(cat.name)
-        print(f"{'  ' * depth}[{depth}] {cat}")
+        print(f"{'  ' * depth}[{depth}] {cat.name}")
 
         if depth >= cat.depth:
             continue
@@ -89,11 +93,25 @@ def inspect_category_tree(category: Category, delay: float = 1.5):
                     queue.append((Category(lang=cat.lang, name=subcat, depth=cat.depth), depth + 1))
 
             cmcontinue = data.get("continue", {}).get("cmcontinue")
-            time.sleep(delay)  # ← 移到 break 判断之前，每次请求后必然执行
+            time.sleep(delay)
             if not cmcontinue:
                 break
 
+    return list(visited)
 
-for item in ROOT_CATEGORIES.items():
-    for category in item[1]:
-        inspect_category_tree(category)
+
+if __name__ == "__main__":
+    TMP_DIR.mkdir(exist_ok=True)
+
+    for lang, categories in ROOT_CATEGORIES.items():
+        collected: set[str] = set()
+        for category in categories:
+            names = inspect_category_tree(category)
+            collected.update(names)
+
+        out_file = TMP_DIR / f"{lang}_categories.json"
+        out_file.write_text(
+            json.dumps(sorted(collected), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"\n✓ {lang}: {len(collected)} 个分类 → {out_file}")
