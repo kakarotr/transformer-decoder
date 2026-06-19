@@ -13,9 +13,9 @@ def generate(
     prompt: str,
     max_new_tokens=200,
     device="cuda",
-    temperature=0.9,
+    temperature=0.1,
     top_p=0.9,
-    repetition_penalty=1.15,
+    repetition_penalty=1.4,
 ):
     model.eval()
     input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
@@ -80,7 +80,22 @@ if __name__ == "__main__":
     state_dict = load_file("artifacts/model.safetensors")
     model.load_state_dict(state_dict)
 
-    while True:
-        prompt = input("请输入：")
-        print(generate(model, tokenizer, prompt))
-        print("\n")
+    test_cases = {
+        "续写_新闻": "据新华社报道，本次会议的主要议题是",
+        "续写_叙述": "他走进图书馆，发现里面几乎没有人。他找了个靠窗的位置坐下，",
+        "续写_说明": "量子计算机与传统计算机的本质区别在于",
+        "知识_历史": "中国古代四大发明分别是",
+        "知识_地理": "长江是中国最长的河流，全长约",
+        "知识_科学": "光合作用是植物利用",
+        "领域_战国": "日本战国时代，织田信长最重要的军事革新是",
+        "领域_二战": "第二次世界大战爆发的直接导火索是",
+    }
+    for prompt in test_cases.values():
+        print(f"输入: {prompt}")
+        print(f"输出: {generate(model, tokenizer, prompt)}")
+        print("---\n")
+
+    # while True:
+    #     prompt = input("请输入：")
+    #     print(generate(model, tokenizer, prompt))
+    #     print("\n")
