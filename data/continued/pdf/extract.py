@@ -1,3 +1,4 @@
+import argparse
 import base64
 import json
 import os
@@ -16,7 +17,11 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from data.continued.prompts import base_section, json_schema_section
+from data.continued.prompts import (
+    horizontal_section,
+    json_schema_section,
+    vertical_section,
+)
 from data.continued.structure import BookPage
 
 load_dotenv()
@@ -29,7 +34,7 @@ client = OpenAI(base_url=base_url, api_key=api_key)
 console = Console()
 
 
-def extract(image_path: str, output_path: str, start: int = 0):
+def extract(image_path: str, output_path: str, start: int = 0, base_sections: list[str] = [horizontal_section]):
     image_dir = Path(image_path)
     output_dir = Path(output_path) / image_dir.name
 
@@ -37,16 +42,18 @@ def extract(image_path: str, output_path: str, start: int = 0):
         output_dir.mkdir(parents=True)
 
     images = sorted(image_dir.glob("*.png"), key=lambda x: int(x.stem))
+    images_to_process = [img for img in images if int(img.stem) >= start]
+
     prompt = "\n\n".join(
         [
-            base_section,
+            *base_sections,
             json_schema_section.format(json_schema=json.dumps(BookPage.model_json_schema(), ensure_ascii=False)),
         ]
     )
 
     console.print(f"[bold cyan]📂 来源:[/] {image_dir}")
     console.print(f"[bold cyan]💾 输出:[/] {output_dir}")
-    console.print(f"[bold cyan]🖼  共计:[/] {len(images)} 张\n")
+    console.print(f"[bold cyan]🖼  共计:[/] {len(images_to_process)} 张\n")
 
     last_paragraph = ""
 
@@ -60,12 +67,10 @@ def extract(image_path: str, output_path: str, start: int = 0):
         TimeRemainingColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("", total=len(images), filename="")
+        task = progress.add_task("", total=len(images_to_process), filename="")
 
-        for image in images:
+        for image in images_to_process:
             name = image.stem
-            if int(name) < start:
-                continue
             progress.update(task, filename=f"{name}.png")
 
             result = invoke(image, prompt, last_paragraph)
@@ -73,15 +78,18 @@ def extract(image_path: str, output_path: str, start: int = 0):
             if result.paragraphs and result.paragraphs[0].type != "title":
                 result.first_paragraph_has_indent = is_continuation(last_paragraph, result.first_paragraph_has_indent)
 
-            if result.paragraphs and result.paragraphs[-1].type != "title":
-                last_paragraph = result.paragraphs[-1].content
+            paragraph_blocks = [p for p in result.paragraphs if p.type == "paragraph"]
+            if paragraph_blocks:
+                last_paragraph = paragraph_blocks[-1].content
+            elif any(p.type == "title" for p in result.paragraphs):
+                last_paragraph = "。"
 
             with open(f"{output_dir}/{name}.json", mode="w", encoding="utf-8") as f:
                 f.write(result.model_dump_json(indent=2))
 
             progress.advance(task)
 
-    console.print(f"\n[bold green]✅ 完成！[/] 已提取 {len(images)} 张，结果保存至 {output_dir}")
+    console.print(f"\n[bold green]✅ 完成！[/] 已提取 {len(images_to_process)} 张，结果保存至 {output_dir}")
 
 
 def invoke(image: Path, prompt: str, last_paragraph: str):
@@ -102,7 +110,17 @@ def invoke(image: Path, prompt: str, last_paragraph: str):
             {"role": "user", "content": user_input},
         ],
         temperature=0.1,
-        response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
+        # response_format={
+        # "type": "json_object"
+        # "type": "json_schema",
+        # "json_schema": {
+        #     "name": "BookPage",
+        #     "description": "书页的结构",
+        #     "schema": BookPage.model_json_schema(),
+        #     "strict": True,
+        # },
+        # },
     )
 
     result = response.choices[0].message.content
@@ -137,12 +155,22 @@ def is_continuation(last_paragraph: str | None, first_paragraph_has_indent: bool
     if last_char not in {"。", "？", "！", "…"}:
         return False
 
-    return first_paragraph_has_indent
+    return True
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--name", type=str, required=True)
+    parser.add_argument("--start", type=int, required=False, default=0)
+    parser.add_argument("--is_jp", type=bool, required=False, default=False)
+
+    args = parser.parse_args()
+
     extract(
-        image_path="/Users/linyongjin/Sengoku/Image/战国日本2：败者的美学",
-        output_path="/Users/linyongjin/Sengoku/Json",
-        start=231,
+        image_path=f"/Users/kakarot/Data/CPT/Sengoku/Image/{args.name}",
+        output_path="/Users/kakarot/Data/CPT/Sengoku/Json"
+        if not args.is_jp
+        else "/Users/kakarot/Data/CPT/Sengoku/Json/JP",
+        start=args.start,
+        base_sections=[vertical_section],
     )

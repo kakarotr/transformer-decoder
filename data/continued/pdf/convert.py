@@ -1,9 +1,16 @@
+import argparse
 from pathlib import Path
 
 from pdf2image import convert_from_path
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 console = Console()
 
@@ -48,9 +55,14 @@ def pdf_to_images(pdf_path: str, output_path: str, dpi: int = 200) -> list[str]:
     return saved_paths
 
 
-pdf_path = "/Users/linyongjin/Sengoku/PDF"
-OUTPUT_PATH = "/Users/linyongjin/Sengoku/Image"
+pdf_path = "/Users/kakarot/Data/CPT/Sengoku/PDF"
+OUTPUT_PATH = "/Users/kakarot/Data/CPT/Sengoku/Image"
 
 
 if __name__ == "__main__":
-    pdf_to_images(pdf_path=f"{pdf_path}/战国日本2：败者的美学.pdf", output_path=OUTPUT_PATH, dpi=300)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--name", type=str, required=True)
+
+    args = parser.parse_args()
+
+    pdf_to_images(pdf_path=f"{pdf_path}/{args.name}.pdf", output_path=OUTPUT_PATH, dpi=300)
