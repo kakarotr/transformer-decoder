@@ -13,9 +13,9 @@ def generate(
     prompt: str,
     max_new_tokens=200,
     device="cuda",
-    temperature=0.9,
+    temperature=0.1,
     top_p=0.9,
-    repetition_penalty=1.15,
+    repetition_penalty=1.4,
 ):
     model.eval()
     input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
