@@ -34,13 +34,13 @@ class WikiCategories(BaseModel):
 
 
 class WikiArticles(BaseModel):
-    name = CharField(max_length=32)
+    title = CharField(max_length=32)
     lang = CharField(max_length=8)
     stage = CharField(max_length=8)
 
     class Meta:
         table_name = "wiki_articles"
-        primary_key = CompositeKey("name", "lang")
+        primary_key = CompositeKey("title", "lang")
 
 
 class WikiArticleCategories(BaseModel):
@@ -49,5 +49,5 @@ class WikiArticleCategories(BaseModel):
     category = CharField(max_length=32)
 
     class Meta:
-        table_name = "wiki_articles"
+        table_name = "wiki_article_categories"
         primary_key = CompositeKey("title", "lang", "category")
