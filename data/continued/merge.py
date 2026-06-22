@@ -127,9 +127,13 @@ if __name__ == "__main__":
                 level=2,
             ),
             HeadingPattern(
-                pattern=r"",
+                pattern=r"^\d+\s+",
                 level=3,
-            )
+            ),
+            HeadingPattern(
+                pattern=r"",
+                level=4,
+            ),
         ],
         need_convert_sp=args.need_convert_sp,
     )

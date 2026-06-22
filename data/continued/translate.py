@@ -1,9 +1,7 @@
 import argparse
 import json
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 from rich.console import Console
@@ -17,14 +15,11 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from data.continued.prompts import json_schema_section, translate_prompt
+from data.continued.prompts import translate_prompt
 from data.continued.structure import BookPage, TextOutput
+from data.continued.utils import get_model
 
-load_dotenv()
-
-base_url = os.environ["BASE_URL"]
-api_key = os.environ["API_KEY"]
-model = os.environ["MODEL"]
+base_url, api_key, model = get_model(provider="DOUBAO")
 client = OpenAI(base_url=base_url, api_key=api_key)
 
 console = Console()
