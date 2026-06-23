@@ -15,12 +15,12 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from data.continued.prompts import (
+from data.continued.book.prompts import (
     horizontal_section,
     json_schema_section,
     vertical_section,
 )
-from data.continued.structure import BookPage
+from data.continued.book.structure import BookPage
 from data.continued.utils import get_model
 
 base_url, api_key, model = get_model(provider="DOUBAO")

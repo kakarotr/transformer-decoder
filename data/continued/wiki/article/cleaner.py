@@ -4,6 +4,19 @@ from bs4 import BeautifulSoup, NavigableString, Tag  # type: ignore
 
 
 class WikiCleaner:
+    DECOMPOSE_CLASSES = {
+        "gallery",
+        "NavFrame",
+        "thumb",
+        "sistersitebox",
+        "rellink",
+        "reflist",
+        "noprint",
+        "navbox",
+    }
+
+    DECOMPOSE_TAGS = {"style", "meta", "link", "figure"}
+
     def __init__(self, content: str) -> None:
         self.document = BeautifulSoup(content, "html.parser")
 
@@ -11,37 +24,34 @@ class WikiCleaner:
         head = self.document.find("head")
         if head:
             head.decompose()
-        self._remove_all("style")
-        self._remove_all("meta")
-        self._remove_all("link")
-        self._remove_all("figure")
 
         # 先删编辑入口（连同内部 a 标签一起删除）
         for tag in self.document.find_all("span", class_="mw-editsection"):
             tag.decompose()
 
-        # 删除图片列表
-        for tag in self.document.find_all(class_="gallery"):
-            tag.decompose()
-
-        # 删除导航模板
-        for tag in self.document.find_all(class_="NavFrame"):
-            tag.decompose()
-
+        self._remove_by_tag()
+        self._remove_by_class()
         self._clean_ruby_tags()
         self._clean_sup_tag()
         self._clean_table()
         self._strip_parsoid_attrs()
         self._unwrap_a()
+        self._process_blockquote_tags()
         self._process_span_tags()
         self._process_inline_tags()
         self._normalize_whitespace()
 
         return self.document.prettify()
 
-    def _remove_all(self, tag: str):
-        for ele in self.document.find_all(tag):
-            ele.decompose()
+    def _remove_by_class(self) -> None:
+        for cls in self.DECOMPOSE_CLASSES:
+            for tag in self.document.find_all(class_=cls):
+                tag.decompose()
+
+    def _remove_by_tag(self) -> None:
+        for tag in self.DECOMPOSE_TAGS:
+            for ele in self.document.find_all(tag):
+                ele.decompose()
 
     def _clean_sup_tag(self):
         def _should_delete_sup(sup_tag) -> bool:
@@ -133,6 +143,43 @@ class WikiCleaner:
                 flush_group()
 
         flush_group()
+
+    def _process_blockquote_tags(self):
+        for blockquote in self.document.find_all("blockquote"):
+            pieces: list[str | Tag] = []
+
+            def append_text(value: str) -> None:
+                text = " ".join(value.split())
+                if not text:
+                    return
+                if pieces and isinstance(pieces[-1], str) and not pieces[-1].endswith(" "):
+                    pieces[-1] += " "
+                pieces.append(text)
+
+            def walk(node) -> None:
+                if isinstance(node, NavigableString):
+                    append_text(str(node))
+                    return
+                if not isinstance(node, Tag):
+                    return
+                if node.name == "br":
+                    pieces.append(self.document.new_tag("br"))
+                    return
+                if node.name == "cite":
+                    text = " ".join(node.get_text(" ", strip=True).split())
+                    if text:
+                        append_text(text)
+                    return
+                for child in node.children:
+                    walk(child)
+
+            walk(blockquote)
+            blockquote.clear()
+            for piece in pieces:
+                if isinstance(piece, str):
+                    blockquote.append(NavigableString(piece))
+                else:
+                    blockquote.append(piece)
 
     def _normalize_whitespace(self) -> None:
         self.document.smooth()
