@@ -1,10 +1,11 @@
 import re
+from typing import ClassVar
 
-from bs4 import BeautifulSoup, NavigableString, Tag  # type: ignore
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag  # type: ignore
 
 
 class WikiCleaner:
-    DECOMPOSE_CLASSES = {
+    DECOMPOSE_CLASSES: ClassVar[set[str]] = {
         "gallery",
         "NavFrame",
         "thumb",
@@ -13,14 +14,20 @@ class WikiCleaner:
         "reflist",
         "noprint",
         "navbox",
+        "refbegin",
     }
 
-    DECOMPOSE_TAGS = {"style", "meta", "link", "figure"}
+    DECOMPOSE_TAGS: ClassVar[set[str]] = {"style", "meta", "link", "figure", "small"}
+
+    _RE_WHITESPACE: ClassVar[re.Pattern[str]] = re.compile(r"\s+")
+    _RE_CJK_SPACE: ClassVar[re.Pattern[str]] = re.compile(r"(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])")
+    _RE_BOLD_PRE: ClassVar[re.Pattern[str]] = re.compile(r"(?<=[^\x00-\x7F]) (?=\*\*)")
+    _RE_BOLD_POST: ClassVar[re.Pattern[str]] = re.compile(r"(?<=\*\*) (?=[^\x00-\x7F])")
 
     def __init__(self, content: str) -> None:
         self.document = BeautifulSoup(content, "html.parser")
 
-    def clean(self):
+    def clean(self) -> str:
         head = self.document.find("head")
         if head:
             head.decompose()
@@ -29,6 +36,7 @@ class WikiCleaner:
         for tag in self.document.find_all("span", class_="mw-editsection"):
             tag.decompose()
 
+        self._remove_comments()
         self._remove_by_tag()
         self._remove_by_class()
         self._clean_ruby_tags()
@@ -37,23 +45,28 @@ class WikiCleaner:
         self._strip_parsoid_attrs()
         self._unwrap_a()
         self._process_blockquote_tags()
+        # _process_span_tags 必须先于 _process_inline_tags，确保 <b> 内的嵌套 span 在生成 ** 标记前已展开
         self._process_span_tags()
         self._process_inline_tags()
         self._normalize_whitespace()
 
         return self.document.prettify()
 
+    def _remove_comments(self) -> None:
+        for comment in self.document.find_all(string=lambda node: isinstance(node, Comment)):
+            comment.extract()
+
     def _remove_by_class(self) -> None:
-        for cls in self.DECOMPOSE_CLASSES:
-            for tag in self.document.find_all(class_=cls):
-                tag.decompose()
+        selector = ", ".join(f".{cls}" for cls in self.DECOMPOSE_CLASSES)
+        for tag in self.document.select(selector):
+            tag.decompose()
 
     def _remove_by_tag(self) -> None:
         for tag in self.DECOMPOSE_TAGS:
             for ele in self.document.find_all(tag):
                 ele.decompose()
 
-    def _clean_sup_tag(self):
+    def _clean_sup_tag(self) -> None:
         def _should_delete_sup(sup_tag) -> bool:
             classes = set(sup_tag.get("class", []))
             if "reference" in classes:
@@ -85,7 +98,7 @@ class WikiCleaner:
             for attr in {"data-mw", "about", "typeof"}:
                 tag.attrs.pop(attr, None)
 
-    def _unwrap_a(self):
+    def _unwrap_a(self) -> None:
         for a in self.document.find_all("a"):
             a.unwrap()
 
@@ -112,68 +125,39 @@ class WikiCleaner:
 
             span.unwrap()
 
-    def _clean_table(self):
+    def _clean_table(self) -> None:
         for table in self.document.select("table:not(.infobox):not(.wikitable)"):
             table.decompose()
 
-    def _merge_paragraph(self, root: Tag) -> None:
-        for section in root.find_all("section", recursive=False):
-            self._merge_paragraph(section)
+    def _append_blockquote_text(self, value: str, pieces: list) -> None:
+        text = " ".join(value.split())
+        if not text:
+            return
+        if pieces and isinstance(pieces[-1], str) and not pieces[-1].endswith(" "):
+            pieces[-1] += " "
+        pieces.append(text)
 
-        current_group: list[Tag] = []
+    def _walk_blockquote(self, node, pieces: list) -> None:
+        if isinstance(node, NavigableString):
+            self._append_blockquote_text(str(node), pieces)
+            return
+        if not isinstance(node, Tag):
+            return
+        if node.name == "br":
+            pieces.append(self.document.new_tag("br"))
+            return
+        if node.name == "cite":
+            text = " ".join(node.get_text(" ", strip=True).split())
+            if text:
+                self._append_blockquote_text(text, pieces)
+            return
+        for child in node.children:
+            self._walk_blockquote(child, pieces)
 
-        def flush_group() -> None:
-            if len(current_group) <= 1:
-                current_group.clear()
-                return
-            first = current_group[0]
-            for p in current_group[1:]:
-                first.append("\n")
-                for child in list(p.children):
-                    first.append(child)
-                p.decompose()
-            current_group.clear()
-
-        for child in list(root.children):
-            if isinstance(child, Tag) and child.name == "p":
-                current_group.append(child)
-            elif isinstance(child, NavigableString) and not child.strip():
-                continue  # 标签间的空白文本节点不中断分组
-            else:
-                flush_group()
-
-        flush_group()
-
-    def _process_blockquote_tags(self):
+    def _process_blockquote_tags(self) -> None:
         for blockquote in self.document.find_all("blockquote"):
             pieces: list[str | Tag] = []
-
-            def append_text(value: str) -> None:
-                text = " ".join(value.split())
-                if not text:
-                    return
-                if pieces and isinstance(pieces[-1], str) and not pieces[-1].endswith(" "):
-                    pieces[-1] += " "
-                pieces.append(text)
-
-            def walk(node) -> None:
-                if isinstance(node, NavigableString):
-                    append_text(str(node))
-                    return
-                if not isinstance(node, Tag):
-                    return
-                if node.name == "br":
-                    pieces.append(self.document.new_tag("br"))
-                    return
-                if node.name == "cite":
-                    text = " ".join(node.get_text(" ", strip=True).split())
-                    if text:
-                        append_text(text)
-                    return
-                for child in node.children:
-                    walk(child)
-
-            walk(blockquote)
+            self._walk_blockquote(blockquote, pieces)
             blockquote.clear()
             for piece in pieces:
                 if isinstance(piece, str):
@@ -184,14 +168,10 @@ class WikiCleaner:
     def _normalize_whitespace(self) -> None:
         self.document.smooth()
 
-        for text_node in self.document.find_all(string=True):
-            s = re.sub(r"\s+", " ", str(text_node))
-            # 非 ASCII 字符之间去空格
-            s = re.sub(r"(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])", "", s)
-
-            # 非 ASCII 字符与 ** 标记之间去空格
-            s = re.sub(r"(?<=[^\x00-\x7F]) (?=\*\*)", "", s)
-            s = re.sub(r"(?<=\*\*) (?=[^\x00-\x7F])", "", s)
-
+        for text_node in self.document.find_all(string=lambda s: type(s) is NavigableString):
+            s = self._RE_WHITESPACE.sub(" ", str(text_node))
+            s = self._RE_CJK_SPACE.sub("", s)
+            s = self._RE_BOLD_PRE.sub("", s)
+            s = self._RE_BOLD_POST.sub("", s)
             s = s.strip()
             text_node.replace_with(s)
