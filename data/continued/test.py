@@ -28,7 +28,7 @@ prompt = """
 - 公元年份依据历史知识判断，无法确认时不补充
 """
 
-client = OpenAI(base_url="https://ark.cn-beijing.volces.com/api/v3", api_key="40bf1a87-e270-4272-8095-48528e46e9a6")
+client = OpenAI(base_url="https://ark.cn-beijing.volces.com/api/v3", api_key="")
 response = client.chat.completions.create(
     model="doubao-seed-1-8-251228",
     messages=[{"role": "system", "content": prompt}, {"role": "user", "content": text}],

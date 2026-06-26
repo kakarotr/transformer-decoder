@@ -2,7 +2,14 @@ import os
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from peewee import CharField, CompositeKey, Model, PostgresqlDatabase
+from peewee import (
+    CharField,
+    CompositeKey,
+    IntegerField,
+    Model,
+    PostgresqlDatabase,
+    TextField,
+)
 
 load_dotenv()
 
@@ -37,6 +44,9 @@ class WikiArticles(BaseModel):
     title = CharField(max_length=32)
     lang = CharField(max_length=8)
     stage = CharField(max_length=8)
+    is_redirect = IntegerField()
+    redirect_to = TextField()
+    redirect_has_anchor = IntegerField()
 
     class Meta:
         table_name = "wiki_articles"
@@ -51,3 +61,13 @@ class WikiArticleCategories(BaseModel):
     class Meta:
         table_name = "wiki_article_categories"
         primary_key = CompositeKey("title", "lang", "category")
+
+
+class WikiAliases(BaseModel):
+    alias_title = TextField()
+    canonical_title = TextField()
+    lang = CharField(max_length=8)
+
+    class Meta:
+        primary_key = CompositeKey("alias_title", "lang")
+        table_name = "wiki_aliases"
