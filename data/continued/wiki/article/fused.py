@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 from openai import OpenAI
@@ -98,47 +99,43 @@ infobox：
   ]
 }}"""
 
+base_url, api_key, model = get_model(provider="doubao")
+client = OpenAI(base_url=base_url, api_key=api_key)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lang", type=str, required=True)
+    args = parser.parse_args()
+
     titles: list[str] = [
         row[0]
         for row in WikiArticles.select(WikiArticles.title)
-        .where((WikiArticles.stage == "fetched") & (WikiArticles.lang == "ja"))
+        .where((WikiArticles.stage == "parsed") & (WikiArticles.lang == args.lang))
         .tuples()
     ]
 
-    title = "上杉謙信"
+    for title in titles:
+        article = WikiArticle.model_validate_json((WIKI_PARSED / f"{title}.json").read_text())
+        infobox = article.infobox
+        lead = article.lead
 
-    file = Path(WIKI_PARSED) / f"{title}.json"
-    article = WikiArticle.model_validate_json(file.read_text())
-    infobox = article.infobox
-    lead = article.lead
+        assert infobox is not None
+        content = []
+        for key, value in infobox.items():
+            content.append(f"{key}: {value}")
+        infobox = "\n".join(content)
 
-    base_url, api_key, model = get_model(provider="doubao")
+        content = []
+        for item in lead:
+            content.append(item.text)
+        lead = "\n\n".join(content)
 
-    assert infobox is not None
-    content = []
-    for key, value in infobox.items():
-        content.append(f"{key}: {value}")
-    infobox = "\n".join(content)
-
-    content = []
-    for item in lead:
-        content.append(item.text)
-    lead = "\n\n".join(content)
-
-    client = OpenAI(base_url=base_url, api_key=api_key)
-    response = client.chat.completions.create(
-        model="doubao-seed-1-8-251228",
-        messages=[
-            {"role": "user", "content": prompt.format(title=title, infobox_fields=infobox, lead_text=lead)},
-        ],
-        temperature=0.3,
-        reasoning_effort="medium",
-        extra_body={"thinking": {"type": "enabled"}},
-        # response_format={"type": "json_object"},
-    )
-
-    result = response.choices[0].message.content
-    assert result is not None
-    print(result)
+        client.responses.create(
+            model="doubao-seed-1-8-251228",
+            input=[
+                {"role": "user", "content": prompt.format(title=title, infobox_fields=infobox, lead_text=lead)},
+            ],
+            temperature=0.3,
+            reasoning={"effort": "medium"},
+            extra_body={"thinking": {"type": "enabled"}},
+        )
