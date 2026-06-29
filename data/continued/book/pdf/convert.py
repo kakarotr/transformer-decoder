@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 
 from pdf2image import convert_from_path
+
+from data.continued.paths import IMAGE_DIR, PDF_DIR
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -55,8 +57,8 @@ def pdf_to_images(pdf_path: str, output_path: str, dpi: int = 200) -> list[str]:
     return saved_paths
 
 
-pdf_path = "/Users/kakarot/Data/CPT/Sengoku/PDF"
-OUTPUT_PATH = "/Users/kakarot/Data/CPT/Sengoku/Image"
+pdf_path = PDF_DIR
+OUTPUT_PATH = IMAGE_DIR
 
 
 if __name__ == "__main__":
@@ -65,4 +67,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    pdf_to_images(pdf_path=f"{pdf_path}/{args.name}.pdf", output_path=OUTPUT_PATH, dpi=300)
+    pdf_to_images(pdf_path=str(pdf_path / f"{args.name}.pdf"), output_path=str(OUTPUT_PATH), dpi=300)

@@ -15,6 +15,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from data.continued.paths import IMAGE_DIR, JSON_DIR, JSON_JP_DIR
 from data.continued.book.prompts import (
     horizontal_section,
     json_schema_section,
@@ -162,10 +163,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract(
-        image_path=f"/Users/kakarot/Data/CPT/Sengoku/Image/{args.name}",
-        output_path="/Users/kakarot/Data/CPT/Sengoku/Json"
-        if not args.is_jp
-        else "/Users/kakarot/Data/CPT/Sengoku/Json/JP",
+        image_path=str(IMAGE_DIR / args.name),
+        output_path=str(JSON_DIR if not args.is_jp else JSON_JP_DIR),
         start=args.start,
         base_sections=[vertical_section],
     )

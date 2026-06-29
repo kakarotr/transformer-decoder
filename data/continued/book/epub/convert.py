@@ -5,6 +5,8 @@ from xml.etree import ElementTree as ET
 
 from bs4 import BeautifulSoup
 
+from data.continued.paths import EPUB_DIR
+
 NAMESPACES = {
     "container": "urn:oasis:names:tc:opendocument:xmlns:container",
     "opf": "http://www.idpf.org/2007/opf",
@@ -119,6 +121,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract_epub(
-        epub_path=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}.epub",
-        output_dir=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}",
+        epub_path=str(EPUB_DIR / f"{args.name}.epub"),
+        output_dir=str(EPUB_DIR / args.name),
     )

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-with open("data/continued/wiki/article/ignore_titles.json", mode="r", encoding="utf-8") as f:
+with open(Path(__file__).parent.parent / "ignore_titles.json", mode="r", encoding="utf-8") as f:
     ignore_titles = json.load(f)
 
 

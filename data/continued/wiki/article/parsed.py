@@ -7,6 +7,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag  # type: ignore
 from tqdm import tqdm
 
+from data.continued.paths import WIKI_CLEANED_HTML, WIKI_PARSED
 from data.continued.wiki.article.structure import (
     Block,
     DescriptionBlock,
@@ -19,9 +20,6 @@ from data.continued.wiki.article.structure import (
     WikiArticle,
 )
 
-# ---------------------------------------------------------------------------
-# Logging — 同时写文件和终端，worker 进程的异常在主进程这里统一记录
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -32,17 +30,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# 模块级常量（每个 worker 进程 import 时各自加载一次，开销可忽略）
-# ---------------------------------------------------------------------------
 _SENTENCE_END_RE = re.compile(r"[。！？」]")
 
-with open("data/continued/wiki/article/ignore_titles.json", mode="r", encoding="utf-8") as f:
+with open(Path(__file__).parent / "ignore_titles.json", mode="r", encoding="utf-8") as f:
     ignore_titles = json.load(f)
 
-# ---------------------------------------------------------------------------
-# 解析辅助函数（与原来完全相同）
-# ---------------------------------------------------------------------------
+
+def normalize_text(text: str):
+    text = normalize_brackets(text=text)
+    return text
+
+
+def normalize_brackets(text: str) -> str:
+    return text.replace("(", "（").replace(")", "）")
 
 
 def process_infobox(document: BeautifulSoup):
@@ -62,13 +62,17 @@ def process_infobox(document: BeautifulSoup):
             if key and value:
                 if infobox is None:
                     infobox = {}
-                infobox[key] = value
+                infobox[key] = normalize_text(value)
     return infobox
 
 
 def process_lead(document: BeautifulSoup):
     rs = document.select("section[data-mw-section-id='0']")
-    leads = [Paragraph(text=p.get_text(strip=True)) for p in rs[0].find_all("p")]
+    leads = [
+        Paragraph(text=normalize_text(p.get_text(strip=True)))
+        for p in rs[0].find_all("p")
+        if not p.find_parent("table")
+    ]
     return leads
 
 
@@ -90,12 +94,12 @@ def process_list(lst: Tag, is_order: bool = False):
             if isinstance(child, Comment):
                 continue
             elif isinstance(child, NavigableString):
-                text_parts.append(str(child))
+                text_parts.append(normalize_text(str(child)))
             elif child.name in ("ul", "ol"):  # type: ignore
                 for nested_li in child.find_all("li", recursive=False):  # type: ignore
                     children.append(parse_item(nested_li))
             else:
-                text_parts.append(child.get_text())
+                text_parts.append(normalize_text(child.get_text()))
 
         return ListItem(
             text="".join(text_parts).strip(),
@@ -128,7 +132,7 @@ def process_blockquote(blockquote: Tag):
     if attr_title:
         title = str(attr_title)
     if content:
-        return Quote(title=title, text=content, citation=citation)
+        return Quote(title=title, text=normalize_text(content), citation=normalize_text(citation) if citation else None)
 
 
 def process_description_list(dl: Tag):
@@ -166,12 +170,12 @@ def process_description_list(dl: Tag):
             for item in content:
                 has_child = item.find(True) is not None
                 if not has_child:
-                    di.body.append(Paragraph(text=item.get_text(strip=True)))
+                    di.body.append(Paragraph(text=normalize_text(item.get_text(strip=True))))
                     continue
 
                 for child in item.find_all(recursive=False):
                     if child.name == "p":
-                        di.body.append(Paragraph(text=child.get_text(strip=True)))
+                        di.body.append(Paragraph(text=normalize_text(child.get_text(strip=True))))
 
                     if child.name in ("ul", "ol"):
                         di.body.append(process_list(lst=child, is_order=child.name == "ol"))
@@ -186,12 +190,12 @@ def process_description_list(dl: Tag):
         for item in dds:
             has_child = item.find(True) is not None
             if not has_child:
-                result.append(Paragraph(text=item.get_text(strip=True)))
+                result.append(Paragraph(text=normalize_text(item.get_text(strip=True))))
                 continue
 
             for child in item.find_all(recursive=False):
                 if child.name == "p":
-                    result.append(Paragraph(text=child.get_text(strip=True)))
+                    result.append(Paragraph(text=normalize_text(child.get_text(strip=True))))
 
                 if child.name in ("ul", "ol"):
                     result.append(process_list(lst=child, is_order=child.name == "ol"))
@@ -224,7 +228,7 @@ def process_section(section: Tag):
 
     for child in section.find_all(recursive=False):
         if child.name == "p":
-            blocks.append(Paragraph(text=child.get_text(strip=True)))
+            blocks.append(Paragraph(text=normalize_text(child.get_text(strip=True))))
 
         if child.name == "ul" or child.name == "ol":
             blocks.append(process_list(lst=child, is_order=child.name == "ol"))
@@ -248,8 +252,8 @@ def process_section(section: Tag):
     return blocks
 
 
-INPUT_DIR = Path("/Users/kakarot/Data/CPT/Sengoku/Wiki/cleaned_html")
-OUTPUT_DIR = Path("/Users/kakarot/Data/CPT/Sengoku/Wiki/structure")
+INPUT_DIR = WIKI_CLEANED_HTML
+OUTPUT_DIR = WIKI_PARSED
 
 
 def process_file(html_path: Path) -> None:
@@ -271,7 +275,7 @@ def process_file(html_path: Path) -> None:
     for section in sections:
         blocks.extend(process_section(section=section))
 
-    article = WikiArticle(title=title, infobox=infobox, lead=lead, blocks=blocks)
+    article = WikiArticle(title=normalize_text(title), infobox=infobox, lead=lead, blocks=blocks)
     out_path = OUTPUT_DIR / f"{title}.json"
     out_path.write_text(article.model_dump_json(ensure_ascii=False, indent=2), encoding="utf-8")
 

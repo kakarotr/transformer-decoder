@@ -5,6 +5,8 @@ from pathlib import Path
 import pandas as pd
 from bs4 import BeautifulSoup
 
+from data.continued.paths import WIKI_CLEANED_HTML
+
 
 def process_html(html_path: Path) -> list[tuple[str, str]]:
     document = BeautifulSoup(html_path.read_text(), "html.parser")
@@ -13,7 +15,7 @@ def process_html(html_path: Path) -> list[tuple[str, str]]:
 
 
 def count_title():
-    path = Path("/Users/kakarot/Data/CPT/Sengoku/Wiki/cleaned_html")
+    path = WIKI_CLEANED_HTML
     html_files = list(path.glob("*.html"))
 
     title_counts: dict[str, int] = defaultdict(int)
@@ -39,7 +41,7 @@ def count_title():
 
 
 if __name__ == "__main__":
-    path = Path("/Users/kakarot/Data/CPT/Sengoku/Wiki/cleaned_html")
+    path = WIKI_CLEANED_HTML
     count = 0
     for html in list(path.glob("*.html")):
         if html.stem in {}:

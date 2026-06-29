@@ -186,8 +186,9 @@ class WikiArticle(BaseModel):
 
 
 if __name__ == "__main__":
-    title = "豊臣秀吉"
-    with open(f"/Users/kakarot/Data/CPT/Sengoku/Wiki/structure/{title}.json", mode="r", encoding="utf-8") as f:
+    from data.continued.paths import WIKI_STRUCTURE
+    title = "蒲生氏郷"
+    with open(WIKI_STRUCTURE / f"{title}.json", mode="r", encoding="utf-8") as f:
         article = WikiArticle.model_validate_json(f.read())
 
     with open(f"{title}.md", mode="w", encoding="utf-8") as f:

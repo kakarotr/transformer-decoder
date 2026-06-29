@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from data.continued.paths import WIKI_CLEANED_HTML
 from data.continued.wiki.article.cleaner import WikiCleaner
 from data.continued.wiki.db import WikiArticles
 
@@ -23,9 +24,7 @@ def fetch_single(name: str, lang: str):
         cleaner = WikiCleaner(content=response.text)
         cleaned_content = cleaner.clean()
         safe_name = name.replace("/", "_")
-        with open(
-            f"/Users/kakarot/Data/CPT/Sengoku/Wiki/cleaned_html/{safe_name}.html", mode="w", encoding="utf-8"
-        ) as f:
+        with open(WIKI_CLEANED_HTML / f"{safe_name}.html", mode="w", encoding="utf-8") as f:
             f.write(cleaned_content)
         WikiArticles.update(stage="fetched").where((WikiArticles.title == name) & (WikiArticles.lang == lang)).execute()
         print(f"✅ {name}")
@@ -59,9 +58,7 @@ def fetch_all(lang: str, workers: int = 8):
         cleaner = WikiCleaner(content=response.text)
         cleaned_content = cleaner.clean()
         safe_name = name.replace("/", "_")
-        with open(
-            f"/Users/kakarot/Data/CPT/Sengoku/Wiki/cleaned_html/{safe_name}.html", mode="w", encoding="utf-8"
-        ) as f:
+        with open(WIKI_CLEANED_HTML / f"{safe_name}.html", mode="w", encoding="utf-8") as f:
             f.write(cleaned_content)
         WikiArticles.update(stage="fetched").where(
             (WikiArticles.title == name) & (WikiArticles.lang == lang)

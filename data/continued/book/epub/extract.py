@@ -14,6 +14,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from data.continued.paths import EPUB_DIR, JSON_DIR, JSON_JP_DIR
 from data.continued.book.prompts import epub_section, json_schema_section
 from data.continued.book.structure import BookPage
 from data.continued.utils import get_model
@@ -121,9 +122,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     extract(
-        html_path=f"/Users/kakarot/Data/CPT/Sengoku/EPUB/{args.name}",
-        output_path="/Users/kakarot/Data/CPT/Sengoku/Json"
-        if not args.is_jp
-        else "/Users/kakarot/Data/CPT/Sengoku/Json/JP",
+        html_path=str(EPUB_DIR / args.name),
+        output_path=str(JSON_DIR if not args.is_jp else JSON_JP_DIR),
         start=args.start,
     )

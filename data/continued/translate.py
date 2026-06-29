@@ -15,6 +15,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from data.continued.paths import JSON_DIR, JSON_JP_DIR
 from data.continued.book.prompts import translate_prompt
 from data.continued.book.structure import BookPage, TextOutput
 from data.continued.utils import get_model
@@ -107,7 +108,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     translate(
-        json_path=f"/Users/kakarot/Data/CPT/Sengoku/Json/JP/{args.name}",
-        output_path="/Users/kakarot/Data/CPT/Sengoku/Json",
+        json_path=str(JSON_JP_DIR / args.name),
+        output_path=str(JSON_DIR),
         start=args.start,
     )
