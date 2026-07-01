@@ -186,9 +186,10 @@ class WikiArticle(BaseModel):
 
 
 if __name__ == "__main__":
-    from data.continued.paths import WIKI_STRUCTURE
+    from data.continued.paths import WIKI_PARSED
+
     title = "蒲生氏郷"
-    with open(WIKI_STRUCTURE / f"{title}.json", mode="r", encoding="utf-8") as f:
+    with open(WIKI_PARSED / f"{title}.json", mode="r", encoding="utf-8") as f:
         article = WikiArticle.model_validate_json(f.read())
 
     with open(f"{title}.md", mode="w", encoding="utf-8") as f:
