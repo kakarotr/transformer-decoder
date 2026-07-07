@@ -1,6 +1,10 @@
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+from data.continued.paths import WIKI_FUSED, WIKI_PARSED, WIKI_PREVIEW
+from data.continued.wiki.db import WikiAliases, WikiArticles
 
 
 class Heading(BaseModel):
@@ -186,11 +190,13 @@ class WikiArticle(BaseModel):
 
 
 if __name__ == "__main__":
-    from data.continued.paths import WIKI_PARSED
-
-    title = "蒲生氏郷"
-    with open(WIKI_PARSED / f"{title}.json", mode="r", encoding="utf-8") as f:
-        article = WikiArticle.model_validate_json(f.read())
-
-    with open(f"{title}.md", mode="w", encoding="utf-8") as f:
-        f.write(article.merge_to_md())
+    # files = sorted(Path(WIKI_FUSED).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
+    # titles = [p.name for p in files[0:100]]
+    # for title in titles:
+    title = "方広寺鐘銘事件.json"
+    article = WikiArticle.model_validate_json(Path(WIKI_FUSED / title).read_text())
+    content = article.merge_to_md()
+    file = Path(WIKI_PREVIEW / f"{title.split('.')[0]}.md")
+    if not file.exists():
+        file.touch()
+    file.write_text(content)

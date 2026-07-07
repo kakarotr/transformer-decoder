@@ -4,12 +4,13 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
+from peewee import InterfaceError, OperationalError
 from pydantic import BaseModel, Field
 
 from data.continued.paths import WIKI_FUSED, WIKI_PARSED
 from data.continued.utils import get_model
 from data.continued.wiki.article.structure import Paragraph, WikiArticle
-from data.continued.wiki.db import WikiArticles
+from data.continued.wiki.db import WikiArticles, db
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +27,8 @@ db_lock = threading.Lock()
 MAX_WORKERS = 16
 
 MAX_TOKENS = 8000
+
+DB_MAX_ATTEMPTS = 3
 
 
 class Paragraphs(BaseModel):
@@ -121,6 +124,29 @@ base_url, api_key, model = get_model(provider="doubao")
 client = OpenAI(base_url=base_url, api_key=api_key)
 
 
+def mark_fused(title: str, lang: str) -> None:
+    """使用短连接更新状态，并在连接失效时重连重试。"""
+    for attempt in range(1, DB_MAX_ATTEMPTS + 1):
+        try:
+            with db.connection_context():
+                WikiArticles.update(stage="fused").where(
+                    (WikiArticles.title == title) & (WikiArticles.lang == lang)
+                ).execute()
+            return
+        except (InterfaceError, OperationalError):
+            # Peewee 只记录逻辑连接状态；底层连接被服务端关闭后，需要显式
+            # 重置当前 worker 的线程局部状态，下一次尝试才会创建新连接。
+            db.close()
+            if attempt == DB_MAX_ATTEMPTS:
+                raise
+            logger.warning(
+                "%s: 数据库连接失效，正在重连（%d/%d）",
+                title,
+                attempt,
+                DB_MAX_ATTEMPTS,
+            )
+
+
 def process_title(title: str, lang: str) -> None:
     """处理单个标题的 infobox 融合。任何异常都在内部捕获并记录，不向上抛出，
     保证一个标题失败不会影响其他标题的处理。"""
@@ -161,9 +187,7 @@ def process_title(title: str, lang: str) -> None:
             f.write(article.model_dump_json(indent=2))
 
         with db_lock:
-            WikiArticles.update(stage="fused").where(
-                (WikiArticles.title == title) & (WikiArticles.lang == lang)
-            ).execute()
+            mark_fused(title, lang)
 
     except Exception:
         logger.exception(f"{title}: 处理失败，已跳过")
@@ -174,12 +198,13 @@ if __name__ == "__main__":
     parser.add_argument("--lang", type=str, required=True)
     args = parser.parse_args()
 
-    titles: list[str] = [
-        row[0]
-        for row in WikiArticles.select(WikiArticles.title)
-        .where((WikiArticles.stage == "parsed") & (WikiArticles.lang == args.lang))
-        .tuples()
-    ]
+    with db.connection_context():
+        titles: list[str] = [
+            row[0]
+            for row in WikiArticles.select(WikiArticles.title)
+            .where((WikiArticles.stage == "parsed") & (WikiArticles.lang == args.lang))
+            .tuples()
+        ]
 
     logger.info(f"待处理标题数：{len(titles)}，并发数：{MAX_WORKERS}")
 
