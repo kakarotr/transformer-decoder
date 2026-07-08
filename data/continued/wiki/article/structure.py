@@ -54,6 +54,10 @@ class Infobox(BaseModel):
     fields: list[tuple[str, str]]
 
 
+def normalize_text(text: str):
+    text.replace("\n", "")
+
+
 def _is_empty_block(block: Block) -> bool:
     match block.kind:
         case "paragraph":
@@ -141,7 +145,9 @@ def _filter_blocks(blocks: list[Block]) -> list[Block]:
     # Step 1: 过滤 enumerative list
     filtered: list[Block] = []
     for b in blocks:
-        if b.kind == "list" and b.category == "enumerative":
+        if b.kind == "paragraph" and b.text.startswith("※"):
+            continue
+        elif b.kind == "list" and b.category == "enumerative":
             continue
         elif b.kind == "dl":
             result = _filter_description_block(b)
@@ -189,14 +195,26 @@ class WikiArticle(BaseModel):
         return self
 
 
-if __name__ == "__main__":
-    # files = sorted(Path(WIKI_FUSED).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
-    # titles = [p.name for p in files[0:100]]
-    # for title in titles:
-    title = "方広寺鐘銘事件.json"
-    article = WikiArticle.model_validate_json(Path(WIKI_FUSED / title).read_text())
+def preivew():
+    files = sorted(Path(WIKI_FUSED).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
+    titles = [p.name for p in files[0:100]]
+    for title in titles:
+        article = WikiArticle.model_validate_json(Path(WIKI_FUSED / title).read_text())
+        content = article.merge_to_md()
+        file = Path(WIKI_PREVIEW / f"{title.split('.')[0]}.md")
+        if not file.exists():
+            file.touch()
+        file.write_text(content)
+
+
+def preview_single(title: str):
+    article = WikiArticle.model_validate_json(Path(WIKI_FUSED / f"{title}.json").read_text())
     content = article.merge_to_md()
     file = Path(WIKI_PREVIEW / f"{title.split('.')[0]}.md")
     if not file.exists():
         file.touch()
     file.write_text(content)
+
+
+if __name__ == "__main__":
+    preview_single(title="本能寺の変")

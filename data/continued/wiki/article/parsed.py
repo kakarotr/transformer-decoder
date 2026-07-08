@@ -38,7 +38,8 @@ with open(Path(__file__).parent / "ignore_titles.json", mode="r", encoding="utf-
 
 def normalize_text(text: str):
     text = normalize_brackets(text=text)
-    return text
+    text = re.sub(r'"([^"]*)"', r"“\1”", text)
+    return text.strip()
 
 
 def normalize_brackets(text: str) -> str:
@@ -79,7 +80,7 @@ def process_lead(document: BeautifulSoup):
 def process_list(lst: Tag, is_order: bool = False):
     texts = [t for li in lst.find_all("li") if li.find(["ul", "ol"]) is None and (t := li.get_text(strip=True))]
 
-    def classify_list(texts: list[str], *, sentence_ratio_thr: float = 0.15):
+    def classify_list(texts: list[str], *, sentence_ratio_thr: float = 0.8):
         n = len(texts)
         if n == 0:
             return "descriptive"
@@ -99,7 +100,7 @@ def process_list(lst: Tag, is_order: bool = False):
                 for nested_li in child.find_all("li", recursive=False):  # type: ignore
                     children.append(parse_item(nested_li))
             else:
-                text_parts.append(normalize_text(child.get_text()))
+                text_parts.append(normalize_text(child.get_text(strip=True)))
 
         return ListItem(
             text="".join(text_parts).strip(),
@@ -278,6 +279,28 @@ def process_file(html_path: Path) -> None:
     article = WikiArticle(title=normalize_text(title), infobox=infobox, lead=lead, blocks=blocks)
     out_path = OUTPUT_DIR / f"{title}.json"
     out_path.write_text(article.model_dump_json(ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def test(title: str):
+    file = Path(WIKI_CLEANED_HTML / f"{title}.html")
+    document = BeautifulSoup(file.read_text(encoding="utf-8"), "html.parser")
+
+    infobox = process_infobox(document)
+    lead = process_lead(document)
+
+    sections = [
+        tag
+        for tag in document.find("body").find_all(  # type: ignore
+            "section", attrs={"data-mw-section-id": True}, recursive=False
+        )
+        if int(tag["data-mw-section-id"]) > 0  # type: ignore
+    ]
+
+    blocks: list[Block] = []
+    for section in sections:
+        blocks.extend(process_section(section=section))
+
+    return WikiArticle(title=normalize_text(title), infobox=infobox, lead=lead, blocks=blocks)
 
 
 if __name__ == "__main__":
