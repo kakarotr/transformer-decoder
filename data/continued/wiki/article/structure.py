@@ -197,24 +197,24 @@ class WikiArticle(BaseModel):
 
 def preivew():
     files = sorted(Path(WIKI_FUSED).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
-    titles = [p.name for p in files[0:100]]
+    titles = [p.name for p in files[100:200]]
     for title in titles:
         article = WikiArticle.model_validate_json(Path(WIKI_FUSED / title).read_text())
         content = article.merge_to_md()
-        file = Path(WIKI_PREVIEW / f"{title.split('.')[0]}.md")
+        file = Path(WIKI_PREVIEW / f"200/{title.split('.')[0]}.md")
         if not file.exists():
             file.touch()
         file.write_text(content)
 
 
-def preview_single(title: str):
+def preview_single(title: str, preview_dir: str):
     article = WikiArticle.model_validate_json(Path(WIKI_FUSED / f"{title}.json").read_text())
     content = article.merge_to_md()
-    file = Path(WIKI_PREVIEW / f"{title.split('.')[0]}.md")
-    if not file.exists():
-        file.touch()
-    file.write_text(content)
+    output_dir = WIKI_PREVIEW / preview_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    file = output_dir / f"{title.split('.')[0]}.md"
+    file.write_text(content, encoding="utf-8")
 
 
 if __name__ == "__main__":
-    preview_single(title="本能寺の変")
+    preview_single("摂政", "200")
