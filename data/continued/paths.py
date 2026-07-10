@@ -5,6 +5,7 @@ CPT_ROOT = Path("/Users/kakarot/Data/CPT/Sengoku")
 WIKI_CLEANED_HTML = CPT_ROOT / "Wiki" / "cleaned_html"
 WIKI_PARSED = CPT_ROOT / "Wiki" / "parsed"
 WIKI_FUSED = CPT_ROOT / "Wiki" / "fused"
+WIKI_ERA = CPT_ROOT / "Wiki" / "era"
 WIKI_PREVIEW = CPT_ROOT / "Wiki" / "preview"
 WIKI_TRANSLATE = CPT_ROOT / "Wiki" / "translate"
 PDF_DIR = CPT_ROOT / "Book" / "PDF"

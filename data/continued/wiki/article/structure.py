@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from data.continued.paths import WIKI_FUSED, WIKI_PARSED, WIKI_PREVIEW
+from data.continued.paths import WIKI_ERA, WIKI_FUSED, WIKI_PARSED, WIKI_PREVIEW
 from data.continued.wiki.db import WikiAliases, WikiArticles
 
 
@@ -195,20 +195,22 @@ class WikiArticle(BaseModel):
         return self
 
 
-def preivew():
-    files = sorted(Path(WIKI_FUSED).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
-    titles = [p.name for p in files[100:200]]
+def preivew(count: int):
+    files = sorted(Path(WIKI_ERA).glob("*.json"), key=lambda x: x.stat().st_size, reverse=True)
+    titles = [p.name for p in files[count - 100 : count]]
+    output_dir = WIKI_PREVIEW / str(count)
+    output_dir.mkdir(parents=True, exist_ok=True)
     for title in titles:
-        article = WikiArticle.model_validate_json(Path(WIKI_FUSED / title).read_text())
+        article = WikiArticle.model_validate_json(Path(WIKI_ERA / title).read_text())
         content = article.merge_to_md()
-        file = Path(WIKI_PREVIEW / f"200/{title.split('.')[0]}.md")
+        file = Path(output_dir / f"{title.split('.')[0]}.md")
         if not file.exists():
             file.touch()
         file.write_text(content)
 
 
 def preview_single(title: str, preview_dir: str):
-    article = WikiArticle.model_validate_json(Path(WIKI_FUSED / f"{title}.json").read_text())
+    article = WikiArticle.model_validate_json(Path(WIKI_ERA / f"{title}.json").read_text())
     content = article.merge_to_md()
     output_dir = WIKI_PREVIEW / preview_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -217,4 +219,6 @@ def preview_single(title: str, preview_dir: str):
 
 
 if __name__ == "__main__":
-    preview_single("摂政", "200")
+    preivew(200)
+    preivew(300)
+    preivew(400)
