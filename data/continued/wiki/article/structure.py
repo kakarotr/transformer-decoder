@@ -219,6 +219,5 @@ def preview_single(title: str, preview_dir: str):
 
 
 if __name__ == "__main__":
-    preivew(200)
-    preivew(300)
-    preivew(400)
+    for i in range(0, 16000, 100):
+        preivew(i)

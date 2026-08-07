@@ -15,3 +15,5 @@ artifacts/checkpoints-*
 
 .env
 .claude
+
+.DS_Store
