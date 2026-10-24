@@ -45,7 +45,7 @@ def build_storage(lang: str):
                 (WikiArticles.lang == lang)
                 & (WikiArticles.stage.in_(["fused", "skip_fused"]))
                 & (WikiArticles.is_redirect == 0)
-                & (WikiArticles.title == "織田信長")
+                & (WikiArticles.title == "およつ御寮人事件")
             )
             .limit(limit)
         ).execute()
@@ -57,7 +57,7 @@ def build_storage(lang: str):
             return WikiArticle.model_validate_json(file.read_text())
 
     def save(title: str, article: WikiArticle) -> None:
-        file = Path(f"{WIKI_TRANSLATE}/{title}.json")
+        file = Path(f"{WIKI_TRANSLATE}/articles/{title}.json")
         file.write_text(article.model_dump_json(indent=2))
         WikiArticles.update(stage="translated").where(
             (WikiArticles.title == title) & (WikiArticles.lang == lang)
@@ -87,23 +87,25 @@ def build_call(args: argparse.Namespace):
         #     # 兼容端点常见：只保证输出是合法 JSON，key 集合由 parse_response 校验
         #     response_format = {"type": "json_object"}
 
-        print(system)
-        print(user)
-        # resp = await client.chat.completions.create(
-        #     model=args.model,
-        #     messages=[
-        #         {"role": "system", "content": system},
-        #         {"role": "user", "content": user},
-        #     ],
-        #     response_format={"type": "json_object"},
-        #     temperature=args.temperature,
-        #     max_tokens=args.max_tokens,
-        # )
-        # choice = resp.choices[0]
-        # if choice.finish_reason == "length":
-        #     raise OSError("输出被截断，调小 --max-chars 或调大 --max-tokens")
-        # return choice.message.content
-        return ""
+        # print(system)
+        # print("---------")
+        # print(user)
+        # print("=========")
+        resp = await client.chat.completions.create(
+            model=args.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format={"type": "json_object"},
+            temperature=args.temperature,
+            max_tokens=args.max_tokens,
+        )
+        choice = resp.choices[0]
+        if choice.finish_reason == "length":
+            raise OSError("输出被截断，调小 --max-chars 或调大 --max-tokens")
+        return choice.message.content  # type: ignore
+        # return ""
 
     return call
 

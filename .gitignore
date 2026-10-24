@@ -11,7 +11,10 @@ wheels/
 
 artifacts/**/model.safetensors
 artifacts/model.safetensors
+artifacts/model.fp32.safetensors
 artifacts/checkpoints-*
+
+release/*
 
 .env
 .claude

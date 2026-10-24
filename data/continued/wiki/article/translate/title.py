@@ -11,7 +11,7 @@ from data.continued.paths import WIKI_FUSED, WIKI_TRANSLATE
 from data.continued.utils import get_model
 from data.continued.wiki.article.translate.prompt import translate_title_prompt
 
-base_url, api_key, _ = get_model(provider="deepseek")
+base_url, api_key, _ = get_model(provider="openrouter")
 
 BATCH_SIZE = 100
 MAX_WORKERS = 8
@@ -97,8 +97,7 @@ def validate_results(batch: list[dict], results: list[dict]) -> list[dict]:
             raise ValueError(f"{input_item['ja_title']}: 返回缺少字段 {sorted(missing)}")
         if result["ja_title"] != input_item["ja_title"]:
             raise ValueError(
-                f"id={input_item['id']}: ja_title 不一致："
-                f"expected={input_item['ja_title']} actual={result['ja_title']}"
+                f"id={input_item['id']}: ja_title 不一致：expected={input_item['ja_title']} actual={result['ja_title']}"
             )
         normalized.append({key: result[key] for key in ("id", "ja_title", "zh_title", "confidence", "note")})
     return normalized
@@ -119,7 +118,7 @@ def translate_batch(batch_index: int, batch: list[dict]) -> tuple[int, int]:
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             response = get_client().chat.completions.create(
-                model="deepseek-v4-flash",
+                model="openai/gpt-5.6-luna",
                 messages=[
                     {"role": "system", "content": TRANSLATE_TITLE_BATCH_PROMPT},
                     {"role": "user", "content": json.dumps(batch, ensure_ascii=False)},
@@ -144,6 +143,7 @@ def translate_batch(batch_index: int, batch: list[dict]) -> tuple[int, int]:
             time.sleep(2**attempt)
 
     return 0, len(batch)
+
 
 if __name__ == "__main__":
     ja_titles = sorted(file.stem for file in Path(WIKI_FUSED).glob("*.json"))

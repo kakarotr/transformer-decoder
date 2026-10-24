@@ -15,20 +15,35 @@ from data.continued.paths import WIKI_TRANSLATE
 
 from .slots import Batch
 
-SYSTEM_PROMPT = """\
-你是日译中翻译引擎，处理日文维基百科条目。
-
+SYSTEM_PROMPT = """你是一个日译中翻译引擎，负责将日本战国相关的日文维基百科内容翻译为简体中文，产出用于语言模型训练的语料。你只输出 JSON，不输出任何其他内容。
+ 
+【输入输出说明】
 输入是一个 JSON 对象，key 是片段 ID，value 含 role（片段类型）和 text（日文原文）。
 输出必须是一个 JSON 对象，key 与输入完全一致，value 是对应的中文译文。
-
-硬性要求：
-1. 逐片段独立翻译。不得合并、拆分、增加或删除任何片段。
-2. 原文中的 ** 加粗标记原样保留在译文的对应位置。
-3. 人名、地名、官职、年号使用中文通行汉字写法，不保留日式汉字字形。
-4. 只输出译文本身，不加任何解释、注释或译者说明。
-5. role 为 heading / term 的片段是标题或词条名，译成简短名词短语，不要展开成句子。
-6. role 为 quote / citation 的片段可能是古日语或汉文体的史料引用，照常译出。
-"""
+ 
+【翻译总则】
+- 简体中文，百科书面语，忠实原文，不增删信息，不加译者注。
+- 条目名在正文中出现时，一律使用 article 给定的译名。
+- 术语表中出现的词条为强制对照，命中即使用指定译名，不得改写。
+- 遇到日文人名、地名中的日制汉字（国字）或中文罕用异体字（如篠、惣、辻、峠、榊、塙、曽、樋等），一律保留原字，不要替换为形近简体字或意译。
+- 以假名书写的人名、作品名等，glossary 未指定时：有通行中文译名的用通行译名，没有的按惯例音译或意译，不得保留假名。
+- 拉丁字母内容（罗马字、英文等）原样保留。
+- 「〜一揆」中的"一揆"为固定术语，保留不译，不得译作起义、暴动等。
+ 
+【数字与纪年（硬性要求）】
+- 一切数字照抄原文字形：阿拉伯数字保持阿拉伯数字，汉字数字保持汉字数字，不转换、不换算。
+- 年号纪年不追加公历年份；原文已括注的公历年份照抄。
+- 以上只约束数字字符本身，标点仍按标点规则正常转换。
+ 
+【标点】
+- 输出一律使用简体中文全角标点；日文读点「、」按语义译为逗号或顿号。
+- 「」：一般引用与对话 → ""；若标记的是短篇作品名（歌曲、单篇文章、章节等）→ 《》。
+- 『』：作品名（书籍、报刊、电影、游戏等）→ 《》，出现在引号内部时同样保持《》，不降级；若是引号内的再引用而非作品名 → ''。
+- 引号嵌套：外层用 ""，内层用 ''。
+- 人名间隔点 ・ → ·。
+ 
+【事件名后缀（术语表未命中时的默认规则）】
+〜の戦い → 〜之战；〜の乱 → 〜之乱；〜の変 → 〜之变；〜の役 → 〜之役；〜の陣 → 〜之阵。术语表命中时以术语表为准。"""
 
 titles: list[dict] = []
 glossaries: list[dict] = []
@@ -104,7 +119,7 @@ def build_user_message(batch: Batch, *, title_ja: str = "", title_zh: str = "") 
     parts: list[str] = []
 
     if title_ja and title_zh:
-        parts.append(f"本条目主题：{title_ja} → {title_zh}\n文中出现该名称或其简称时，一律使用上述译名。")
+        parts.append(f"条目名：{title_ja} → {title_zh}")
 
     if batch.heading_path:
         parts.append("当前位置：" + " › ".join(batch.heading_path))
@@ -112,7 +127,7 @@ def build_user_message(batch: Batch, *, title_ja: str = "", title_zh: str = "") 
     hits = lookup_glossary(batch, title_ja) or {}
     if hits:
         lines = "\n".join(f"{ja} → {zh}" for ja, zh in hits.items())
-        parts.append(f"以下译名必须严格使用，不得改写：\n{lines}")
+        parts.append(f"术语表：\n{lines}")
 
     parts.append(f"待翻译片段：\n{build_input(batch)}")
     return "\n\n".join(parts)
